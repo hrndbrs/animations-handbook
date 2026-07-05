@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Canvas Particle System — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="particles.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/canvas/particles.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Canvas Particle System</h1>
+    <p>The imperative engine: you compute and draw every frame yourself.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        Everything up to this chapter has been declarative — you set a CSS
+        end state and the browser interpolated the frames. Canvas is the
+        opposite model: <code>&lt;canvas&gt;</code> is an immediate-mode
+        drawing surface with no retained scene graph. Nothing you draw
+        "exists" as an object the browser tracks — each frame you clear the
+        canvas and redraw everything from scratch based on your own
+        in-memory state.
+      </p>
+      <p>
+        This exists for cases CSS/DOM animation can't reach: particle counts
+        in the hundreds or thousands, per-pixel effects, physics simulations
+        — anything where creating one DOM element per visual unit would be
+        far too much overhead for the browser to lay out, style, and
+        composite individually.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        A <code>&lt;canvas&gt;</code> element is a single compositor layer.
+        No matter how many shapes you draw inside it, the browser only ever
+        has to composite one bitmap for the whole canvas — the cost lives
+        entirely in your own per-frame JavaScript and the 2D context's
+        rasterization work, not in browser layout or per-element paint.
+      </p>
+      <p>
+        <code>requestAnimationFrame</code> (rAF) schedules your callback to
+        run right before the browser's next repaint, synced to the display's
+        refresh rate (typically 60Hz, sometimes 120Hz+). This is different
+        from a <code>setInterval</code> loop, which runs on a fixed timer
+        with no relationship to the browser's actual paint cycle — rAF
+        callbacks that miss a frame budget just push to the next repaint
+        instead of stacking up queued work.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — the canvas element and its 2D context:</p>
+      <pre><code class="language-markup">&lt;canvas id="particle-canvas" width="600" height="360"&gt;&lt;/canvas&gt;</code></pre>
+      <pre><code class="language-javascript">const canvas = document.getElementById('particle-canvas');
+const ctx = canvas.getContext('2d');</code></pre>
+      <p>
+        <code>width</code>/<code>height</code> attributes set the canvas's
+        drawing-buffer resolution (its coordinate space) — this is distinct
+        from its CSS display size, which is handled separately in
+        <code>particles.css</code>.
+      </p>
+      <p>Step 2 — a <code>Particle</code> class holding each particle's home position and current position, using <code>lerp</code>/<code>clamp</code> from the shared math utilities to smooth its motion:</p>
+      <pre><code class="language-javascript">import { lerp, clamp } from '../../utils/math.js';
+
+class Particle {
+  constructor() {
+    this.reset();
+  }
+  reset() {
+    this.baseX = randomBetween(0, canvas.width);
+    this.baseY = randomBetween(0, canvas.height);
+    this.x = this.baseX;
+    this.y = this.baseY;
+    this.radius = randomBetween(1, 3);
+  }
+  update(pointer) {
+    const dx = pointer.x - this.x;
+    const dy = pointer.y - this.y;
+    const distance = Math.hypot(dx, dy);
+    const influence = clamp(1 - distance / 160, 0, 1);
+    const pushX = influence * -dx * 0.05;
+    const pushY = influence * -dy * 0.05;
+    this.x = lerp(this.x, this.baseX + pushX, 0.08);
+    this.y = lerp(this.y, this.baseY + pushY, 0.08);
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(79, 70, 229, 0.85)';
+    ctx.fill();
+  }
+}</code></pre>
+      <p>Step 3 — track the pointer position with a <code>pointermove</code> listener, registered as passive since it never calls <code>preventDefault()</code>:</p>
+      <pre><code class="language-javascript">canvas.addEventListener('pointermove', (event) => {
+  const rect = canvas.getBoundingClientRect();
+  pointer.x = ((event.clientX - rect.left) / rect.width) * canvas.width;
+  pointer.y = ((event.clientY - rect.top) / rect.height) * canvas.height;
+}, { passive: true });</code></pre>
+      <p>Step 4 — the render loop: clear, update every particle, draw every particle, schedule the next frame:</p>
+      <pre><code class="language-javascript">function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  particles.forEach((particle) => {
+    particle.update(pointer);
+    particle.draw();
+  });
+  requestAnimationFrame(animate);
+}
+
+requestAnimationFrame(animate);</code></pre>
+      <p>
+        Note the loop calls <code>requestAnimationFrame(animate)</code>
+        again from inside itself — this self-scheduling pattern is what
+        keeps it running at the display's refresh rate indefinitely, instead
+        of a fixed-interval timer.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <p>Move your cursor over the canvas:</p>
+      <div class="demo canvas-demo">
+        <canvas id="particle-canvas" width="600" height="360" aria-label="Cursor-reactive particle animation"></canvas>
+      </div>
+      <p class="canvas-demo__reduced-motion-note">
+        If your system has reduced motion enabled, this renders as a single static frame instead of animating.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Change <code>PARTICLE_COUNT</code> and observe the frame rate impact in DevTools' Performance panel at very high counts (try 2000+).</li>
+        <li>Change <code>EASE_TOWARD_TARGET</code> (the third argument to <code>lerp</code> in <code>update()</code>) and observe how it changes the "springiness" of the drift.</li>
+        <li>Add a color gradient based on each particle's distance from the pointer, using <code>map()</code> from <code>utils/math.js</code> to convert distance into a hue value.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Forgetting <code>ctx.clearRect()</code> at the top of the loop — previous frames never get erased, leaving streaks.</li>
+        <li>Using <code>setInterval</code> instead of <code>requestAnimationFrame</code> — runs out of sync with the display's actual repaint, wasting work or looking stuttery.</li>
+        <li>Reading <code>canvas.width</code>/<code>canvas.height</code> as CSS pixels — they're the drawing-buffer resolution; mixing them up with the CSS display size (especially after scaling in `particles.css`) misplaces the pointer coordinates, which is why this demo explicitly rescales `clientX`/`clientY` through `getBoundingClientRect()`.</li>
+        <li>Allocating new objects (e.g. `{ x, y }`) inside the per-frame loop — creates GC pressure at 60fps; this demo reuses the same `Particle` instances and the same `pointer` object every frame instead.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        The loop's cost is O(particle count) per frame, entirely inside your
+        own JS + the 2D context's fill/stroke calls — there's no browser
+        layout or per-shape paint step to account for, since nothing here is
+        a DOM element. The <code>Particle</code> instances and the
+        <code>pointer</code> object are created once and mutated in place
+        every frame, rather than reallocated, to avoid unnecessary garbage
+        collection pauses during the animation.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        The canvas has an <code>aria-label</code> describing what it shows,
+        since a canvas's pixel content is otherwise invisible to assistive
+        technology. Because CSS's <code>prefers-reduced-motion</code> media
+        query has no effect on a JS <code>requestAnimationFrame</code> loop,
+        this demo checks <code>matchMedia('(prefers-reduced-motion: reduce)')</code>
+        directly in JavaScript and renders a single static frame instead of
+        starting the loop when the user has that preference set.
+      </p>
+      <pre><code class="language-javascript">const prefersReducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+if (prefersReducedMotion) {
+  drawFrame();
+} else {
+  requestAnimationFrame(animate);
+}</code></pre>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        <code>pointermove</code> covers mouse, pen, and touch input uniformly
+        (unlike separate <code>mousemove</code>/<code>touchmove</code>
+        listeners). On a touchscreen there's no persistent "hover" position
+        the way there is with a mouse, so particles simply drift back toward
+        their <code>baseX</code>/<code>baseY</code> home positions when no
+        active touch is present. Lower-powered mobile GPUs handle a canvas
+        this size and particle count without difficulty, but
+        <code>PARTICLE_COUNT</code> is a reasonable first thing to reduce if
+        targeting older mobile hardware.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Canvas 2D context</td><td>4+</td><td>2+</td><td>3.1+</td><td>Universally supported.</td></tr>
+          <tr><td><code>requestAnimationFrame</code></td><td>24+</td><td>23+</td><td>6.1+</td><td>Universally supported.</td></tr>
+          <tr><td>Pointer Events (<code>pointermove</code>)</td><td>55+</td><td>59+</td><td>13+</td><td>Universally supported in evergreen browsers.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="particles.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

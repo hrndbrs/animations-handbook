@@ -1,0 +1,25 @@
+/* docs/canvas/particles.css
+   Styles for the Canvas particle demo container. The canvas element itself
+   is sized via width/height attributes in HTML (its drawing-buffer size),
+   this CSS only handles layout/border presentation. */
+
+.canvas-demo {
+  display: flex;
+  justify-content: center;
+  padding: 1rem 0;
+}
+
+.canvas-demo canvas {
+  max-width: 100%;
+  height: auto;
+  background: #0b0c10;
+  border: 1px solid #24262f;
+  border-radius: 12px;
+}
+
+.canvas-demo__reduced-motion-note {
+  text-align: center;
+  color: var(--color-text-muted, #a3a6b3);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
