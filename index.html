@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Animations Handbook</title>
+  <link rel="stylesheet" href="shared/doc-page.css" />
+</head>
+<body>
+  <site-header base="./"></site-header>
+  <site-nav base="./" current=""></site-nav>
+
+  <main class="doc-page">
+    <h1>Animations Handbook</h1>
+    <p>
+      A reference and learning resource for building modern web animations
+      using only HTML5, CSS3, and vanilla JavaScript (ES6+) — no frameworks,
+      no animation libraries. Every chapter explains the theory, the browser
+      rendering behavior behind it, a fully commented implementation, a
+      working interactive demo, exercises, common mistakes, and performance,
+      accessibility, mobile, and browser-compatibility notes.
+    </p>
+
+    <section class="doc-page__section">
+      <h2>Chapters</h2>
+      <ul class="callout-list">
+        <li>
+          <a href="docs/css-basics/transitions.html">CSS Transitions &amp; Transform Basics</a>
+          — the declarative CSS animation engine: <code>transition</code>,
+          <code>transform</code>, and timing functions.
+        </li>
+        <li>
+          <a href="docs/scroll/intersection-reveal.html">Scroll Reveal with IntersectionObserver</a>
+          — the observer-driven JS engine: detecting viewport entry without
+          scroll-event polling.
+        </li>
+        <li>
+          <a href="docs/canvas/particles.html">Canvas Particle System</a>
+          — the imperative engine: drawing and animating directly with
+          <code>requestAnimationFrame</code> and the Canvas 2D API.
+        </li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>About this project</h2>
+      <p>
+        This is Phase 1 of a much larger handbook. The three chapters above
+        were chosen because they each exercise a structurally different
+        animation engine — pure CSS, observer-driven JS, and imperative
+        JS+Canvas — which stress-tests whether the shared documentation
+        template and utility modules generalize before dozens more chapters
+        are built on top of them.
+      </p>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="shared/partials.js"></script>
+</body>
+</html>
