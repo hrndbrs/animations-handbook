@@ -1,0 +1,38 @@
+/* docs/scroll/intersection-reveal.css
+   Styles for the staggered scroll-reveal list. Each item starts faded/offset
+   and transitions to its resting state once IntersectionObserver marks it
+   visible (see intersection-reveal.js). */
+
+.reveal-list {
+  padding: 1rem 0;
+}
+
+.reveal-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.reveal-item {
+  padding: 1rem 1.25rem;
+  background: #1c1f29;
+  border: 1px solid #24262f;
+  border-radius: 8px;
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.reveal-item.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-item {
+    transition-duration: 0.01ms;
+  }
+}

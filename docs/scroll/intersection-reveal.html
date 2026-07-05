@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scroll Reveal with IntersectionObserver — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="intersection-reveal.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/scroll/intersection-reveal.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Scroll Reveal with IntersectionObserver</h1>
+    <p>Detecting viewport entry without a single scroll event listener.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        The old way to reveal content on scroll was a <code>scroll</code>
+        event listener that, on every fired event, called
+        <code>getBoundingClientRect()</code> on every candidate element to
+        check whether it had entered the viewport. That runs dozens of times
+        per second during a scroll gesture, and each
+        <code>getBoundingClientRect()</code> call can force a synchronous
+        layout if styles are "dirty" (a <strong>forced reflow</strong>).
+      </p>
+      <p>
+        <code>IntersectionObserver</code> exists specifically to replace that
+        pattern. You register a callback and a target element; the browser —
+        not your code — tracks intersection with the viewport (or another
+        ancestor) asynchronously, off the main thread's critical path, and
+        only invokes your callback when the intersection state actually
+        crosses a threshold you specify. No polling, no manual geometry
+        math, no forced layout.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        Because <code>IntersectionObserver</code> computations happen
+        asynchronously and are batched by the browser, they don't compete
+        with the main thread the way a naive <code>scroll</code> handler
+        does. The animation this chapter triggers is still a plain CSS
+        <code>transition</code> on <code>opacity</code>/<code>transform</code>
+        — so once the observer flips the <code>is-visible</code> class, the
+        actual animation work is the same composite-only path described in
+        the CSS Transitions chapter.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — the markup, a plain list:</p>
+      <pre><code class="language-markup">&lt;ul class="reveal-list__items"&gt;
+  &lt;li class="reveal-item"&gt;Item one&lt;/li&gt;
+  &lt;li class="reveal-item"&gt;Item two&lt;/li&gt;
+  &lt;li class="reveal-item"&gt;Item three&lt;/li&gt;
+&lt;/ul&gt;</code></pre>
+      <p>Step 2 — the resting and hidden states, both defined purely in CSS:</p>
+      <pre><code class="language-css">.reveal-item {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.reveal-item.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}</code></pre>
+      <p>Step 3 — stagger each item's reveal by giving it an index-based <code>transition-delay</code>:</p>
+      <pre><code class="language-javascript">items.forEach((item, index) => {
+  item.style.transitionDelay = `${index * 80}ms`;
+});</code></pre>
+      <p>Step 4 — create the observer and watch every item; once an item is 20% visible, mark it revealed and stop watching it:</p>
+      <pre><code class="language-javascript">const observer = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  },
+  { threshold: 0.2 }
+);
+
+items.forEach((item) => observer.observe(item));</code></pre>
+      <p>
+        <code>threshold: 0.2</code> means the callback fires once 20% of the
+        item's area is inside the viewport — tune this per design (a small
+        threshold reveals items sooner, a large one waits until more of the
+        element is visible).
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <p>Scroll this box to see the items reveal:</p>
+      <div class="demo reveal-list" style="max-height: 220px; overflow-y: auto;">
+        <ul class="reveal-list__items">
+          <li class="reveal-item">Item one</li>
+          <li class="reveal-item">Item two</li>
+          <li class="reveal-item">Item three</li>
+          <li class="reveal-item">Item four</li>
+          <li class="reveal-item">Item five</li>
+          <li class="reveal-item">Item six</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Change <code>threshold</code> to <code>1</code> and observe how much longer items take to reveal.</li>
+        <li>Add a <code>rootMargin</code> option to the observer so items reveal slightly before they enter the viewport.</li>
+        <li>Remove the <code>observer.unobserve(entry.target)</code> call and also toggle <code>is-visible</code> off when <code>entry.isIntersecting</code> is false, to make the reveal repeat every time an item scrolls in and out.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Using a <code>scroll</code> event listener with <code>getBoundingClientRect()</code> instead of <code>IntersectionObserver</code> — causes forced reflows and unnecessary main-thread work.</li>
+        <li>Forgetting to <code>unobserve()</code> a one-shot reveal — the observer keeps tracking elements that will never need to fire again.</li>
+        <li>Animating <code>height</code> or <code>margin-top</code> instead of <code>transform: translateY()</code> for the slide-in — forces layout on every frame of the transition.</li>
+        <li>Setting the initial <code>opacity: 0</code> state only via a class that JS adds after load — causes a flash of fully-visible content before JS runs. Here it's set directly in the base CSS rule to avoid that.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        Intersection computation is handled by the browser off the critical
+        rendering path, and the reveal animation itself only touches
+        <code>opacity</code>/<code>transform</code> — composite-only, no
+        layout thrash, regardless of how many items are in the list.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        Content is present in the DOM and readable by screen readers
+        immediately — only its visual opacity/position animates, nothing is
+        <code>display: none</code> or removed before reveal. The
+        <code>prefers-reduced-motion</code> rule below collapses the
+        transition to near-instant.
+      </p>
+      <pre><code class="language-css">@media (prefers-reduced-motion: reduce) {
+  .reveal-item {
+    transition-duration: 0.01ms;
+  }
+}</code></pre>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        <code>IntersectionObserver</code> works identically for touch-driven
+        scrolling; there's no <code>:hover</code> dependency. On low-powered
+        devices, keeping the per-item transition to <code>opacity</code>/<code>transform</code>
+        only (rather than adding blur filters or shadows to the transition)
+        keeps the reveal smooth.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>IntersectionObserver</code></td><td>51+</td><td>55+</td><td>12.1+</td><td>Universally supported in evergreen browsers.</td></tr>
+          <tr><td><code>IntersectionObserver</code> <code>rootMargin</code>/<code>threshold</code></td><td>51+</td><td>55+</td><td>12.1+</td><td>Same support as the base API.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="intersection-reveal.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>
