@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CSS Transitions &amp; Transform Basics — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="transitions.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/css-basics/transitions.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>CSS Transitions &amp; Transform Basics</h1>
+    <p>The declarative animation engine: change a value, let CSS animate the change.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        A CSS <code>transition</code> animates a property from its old
+        computed value to its new one whenever that value changes — on
+        <code>:hover</code>, on a class toggle, on any style recalculation.
+        You never write the in-between frames; the browser interpolates them.
+        This is fundamentally different from JavaScript animation, where you
+        compute every frame yourself.
+      </p>
+      <p>
+        <code>transform</code> is the property most worth animating this way.
+        Unlike <code>top</code>/<code>left</code>/<code>width</code>/<code>height</code>,
+        a <code>transform</code> change does not affect document layout — the
+        element still occupies its original box, just painted somewhere else
+        or at a different scale/rotation. That means animating
+        <code>transform</code> can skip layout recalculation entirely.
+      </p>
+      <p>
+        Why this matters: it exists because early web animation used
+        <code>left</code>/<code>top</code>, which forces the browser to
+        recompute layout for every frame — expensive, and the reason old-web
+        animations often looked janky. <code>transition</code> +
+        <code>transform</code> was the platform's answer: a declarative,
+        layout-free way to animate.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        A browser's rendering pipeline has (roughly) three stages relevant
+        here: <strong>Layout</strong> (compute every element's geometry),
+        <strong>Paint</strong> (rasterize pixels), and
+        <strong>Composite</strong> (assemble painted layers on the GPU).
+      </p>
+      <p>
+        Changing <code>transform</code> or <code>opacity</code> can skip
+        Layout and Paint entirely and go straight to Composite, if the
+        element already has its own compositor layer. Browsers promote an
+        element to its own layer under several conditions — a running
+        <code>transform</code>/<code>opacity</code> transition is one of
+        them, since the browser knows in advance that only compositing will
+        be needed. This is why <code>transform</code>/<code>opacity</code>
+        are called the "cheap" properties to animate: they're the only two
+        that can be composite-only.
+      </p>
+      <p>
+        Animating <code>width</code>, <code>margin</code>, <code>top</code>,
+        or similar box-model properties forces Layout on every frame
+        (a "reflow"), which cascades into Paint and Composite too — three
+        stages of work per frame instead of one.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — the markup. A <code>&lt;button&gt;</code> (keyboard-accessible by default) wraps two stacked faces:</p>
+      <pre><code class="language-markup">&lt;button type="button" class="flip-card" id="flip-card-trigger" aria-pressed="false"&gt;
+  &lt;span class="flip-card__inner"&gt;
+    &lt;span class="flip-card__face flip-card__face--front"&gt;Hover or click me&lt;/span&gt;
+    &lt;span class="flip-card__face flip-card__face--back"&gt;Flipped!&lt;/span&gt;
+  &lt;/span&gt;
+&lt;/button&gt;</code></pre>
+      <p>
+        <code>aria-pressed="false"</code> is the toggle's source of truth —
+        both the visual flip and assistive-technology state read from it.
+      </p>
+      <p>Step 2 — give the parent perspective, so the 3D rotation reads as a flip rather than a flat squash:</p>
+      <pre><code class="language-css">.flip-card-demo {
+  perspective: 800px;
+}</code></pre>
+      <p>Step 3 — the two faces are absolutely positioned on top of each other, and the back face is pre-rotated 180deg so it lands right-side-up once the parent flips:</p>
+      <pre><code class="language-css">.flip-card__inner {
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.flip-card[aria-pressed="true"] .flip-card__inner {
+  transform: rotateY(180deg);
+}
+
+.flip-card__face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+
+.flip-card__face--back {
+  transform: rotateY(180deg);
+}</code></pre>
+      <p>
+        <code>backface-visibility: hidden</code> hides each face when it's
+        turned away from the viewer, so you never see the back face's mirror
+        image bleeding through the front face mid-flip.
+      </p>
+      <p>Step 4 — the only JavaScript: toggle the source-of-truth attribute on click. CSS does the rest.</p>
+      <pre><code class="language-javascript">const trigger = document.getElementById('flip-card-trigger');
+
+trigger.addEventListener('click', () => {
+  const isPressed = trigger.getAttribute('aria-pressed') === 'true';
+  trigger.setAttribute('aria-pressed', String(!isPressed));
+});</code></pre>
+      <p>Step 5 — as a concrete check that the CSS curve and a JS-side evaluator agree, this chapter also imports the <code>cubicBezier</code> evaluator from <code>utils/easing.js</code> and samples it at a few points using the same four control-point values as the CSS transition above:</p>
+      <pre><code class="language-javascript">import { cubicBezier } from '../../utils/easing.js';
+
+const flipEasing = cubicBezier(0.65, 0, 0.35, 1);
+const samples = [0, 0.25, 0.5, 0.75, 1]
+  .map((t) => `t=${t} → ${flipEasing(t).toFixed(3)}`)
+  .join('   ');
+document.getElementById('bezier-sample-output').textContent = samples;</code></pre>
+      <p id="bezier-sample-output" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--color-text-muted);"></p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo flip-card-demo">
+        <button type="button" class="flip-card" id="flip-card-trigger" aria-pressed="false">
+          <span class="flip-card__inner">
+            <span class="flip-card__face flip-card__face--front">Click me</span>
+            <span class="flip-card__face flip-card__face--back">Flipped!</span>
+          </span>
+        </button>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Change the transition's <code>cubic-bezier()</code> values and observe how the flip's acceleration curve changes.</li>
+        <li>Add a second transition on <code>box-shadow</code> that grows the card's shadow while it's flipped, to practice animating more than one property at once.</li>
+        <li>Make the flip trigger on <code>:hover</code> in addition to click, and consider why click-only might be the better choice for touch devices.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Animating <code>top</code>/<code>left</code> instead of <code>transform: translate()</code> — forces layout every frame.</li>
+        <li>Forgetting <code>backface-visibility: hidden</code> — the back face shows through mirrored during the flip.</li>
+        <li>Putting <code>perspective</code> on the flipping element itself instead of its parent — the 3D effect won't read correctly.</li>
+        <li>Using a <code>&lt;div&gt;</code> with a click handler instead of a <code>&lt;button&gt;</code> — loses free keyboard accessibility and focus styling.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        This demo only ever animates <code>transform</code>, so it stays
+        composite-only for its entire duration — no forced layout, no
+        repaint of surrounding content. For a card this size that's not
+        critical, but the same principle matters enormously once you're
+        animating dozens of cards or a whole page section.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        The trigger is a real <code>&lt;button&gt;</code>, reachable and
+        activatable by keyboard with no extra code. Its <code>aria-pressed</code>
+        state is announced by screen readers as a toggle. The
+        <code>prefers-reduced-motion</code> media query below shrinks the
+        transition to effectively instant for users who've asked for reduced
+        motion, while still changing state correctly.
+      </p>
+      <pre><code class="language-css">@media (prefers-reduced-motion: reduce) {
+  .flip-card__inner {
+    transition-duration: 0.01ms;
+  }
+}</code></pre>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        There's no <code>:hover</code> dependency here — the demo is
+        click/tap-driven, which works identically with mouse, touch, and
+        keyboard (Enter/Space on the focused button). 3D transforms and
+        <code>backface-visibility</code> are well supported on mobile
+        WebKit/Blink, so no fallback is needed.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>transition</code></td><td>26+</td><td>16+</td><td>9+</td><td>Universally supported.</td></tr>
+          <tr><td><code>transform: rotateY()</code></td><td>36+</td><td>16+</td><td>9+</td><td>Universally supported.</td></tr>
+          <tr><td><code>backface-visibility</code></td><td>36+</td><td>16+</td><td>5.1+</td><td>Universally supported.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="transitions.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>
