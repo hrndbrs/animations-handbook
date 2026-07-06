@@ -1,0 +1,38 @@
+/* docs/svg/shape-morphing.css
+   Three morph techniques: a hover-triggered CSS-only `d` transition, a
+   continuous JS point-interpolation loop, and a click-triggered JS
+   point-interpolation morph. The two JS-driven demos never touch CSS for
+   their shape state -- utils/svg-morph.js's interpolatePath() writes a
+   fresh `d` attribute value directly every frame instead. */
+
+.morph-demo__figure {
+  display: block;
+  width: 100%;
+  max-width: 200px;
+  height: auto;
+  margin: 0 auto;
+}
+
+.morph-demo__shape {
+  fill: var(--color-accent);
+}
+
+/* Demo 1: CSS-only `d` morph on hover */
+.morph-demo__css-shape {
+  transition: d 0.5s ease;
+}
+
+.morph-demo__css-stage:hover .morph-demo__css-shape {
+  d: path("M50 10 L90 50 L50 90 L10 50 Z");
+}
+
+/* Demo 3: click-triggered icon morph button */
+.morph-demo__icon-trigger {
+  display: block;
+  margin: 0 auto;
+  padding: 1rem;
+  background: var(--color-surface);
+  border: 1px solid #24262f;
+  border-radius: 12px;
+  cursor: pointer;
+}

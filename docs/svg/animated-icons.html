@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Animated Icons — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="animated-icons.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/svg/animated-icons.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Animated Icons</h1>
+    <p>Three small, practical icon animations — a checkbox, a like button, a loading spinner — and the first appearance of SMIL, SVG's own built-in animation system.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        SMIL (<code>&lt;animate&gt;</code>, <code>&lt;animateTransform&gt;</code>)
+        is SVG's native, markup-only animation system — it predates both
+        CSS animations and the technique of driving attributes from JS,
+        and still ships in every evergreen browser. It can run entirely
+        declaratively (no JS at all, as in Demo 3's SMIL spinner) or be
+        triggered from JS via <code>.beginElement()</code> on an element
+        with <code>begin="indefinite"</code> (Demo 2's SMIL like button).
+        This chapter puts SMIL and CSS side by side on the exact same
+        effect twice, so the tradeoffs are visible rather than abstract.
+      </p>
+      <p>
+        Demo 1 combines both of Phase 5a's core techniques into one real
+        UI pattern: the checkbox's outer box "pops" via point
+        interpolation (<code>utils/svg-morph.js</code>'s
+        <code>interpolatePath</code>, morphing between an inset and a
+        full-size square), while its checkmark draws in via
+        <code>stroke-dashoffset</code> (Path Drawing's technique) — driven
+        by nothing more than the button's own <code>aria-checked</code>
+        attribute in CSS.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        SMIL's <code>animateTransform type="scale"</code> scales from the
+        SVG coordinate system's origin <code>(0, 0)</code>, not from an
+        element's own visual center — there is no SMIL equivalent of
+        <code>transform-origin</code>. Reaching a shape's own center
+        requires wrapping it in a <code>&lt;g transform="translate(cx, cy)"&gt;</code>
+        first, so the shape's local origin lands on its visual center
+        before the scale is applied. <code>type="rotate"</code> sidesteps
+        this by accepting an explicit center directly in its value
+        (<code>"angle cx cy"</code>), which is why Demo 3's SMIL spinner
+        needs no wrapper while Demo 2's SMIL like button does. CSS's
+        <code>transform-box: fill-box; transform-origin: center;</code>
+        (used by both CSS demos here) is the more convenient modern
+        equivalent — one declaration instead of a markup restructure.
+      </p>
+      <p>
+        Critically, the sitewide <code>prefers-reduced-motion</code> CSS
+        rule in <code>shared/doc-page.css</code> has no effect on SMIL
+        animations at all, since SMIL isn't CSS and a CSS media query
+        can't reach into it. Demo 3's SMIL spinner is paused explicitly via
+        <code>svgRoot.pauseAnimations()</code> when reduced motion is
+        preferred; its CSS twin is already covered by the sitewide rule.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 (Demo 1) — the checkmark draws in purely via CSS, reacting to the checkbox's own <code>aria-checked</code> attribute, no JS involved for this half:</p>
+      <pre><code class="language-css">.icon-demo__checkbox-check {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  transition: stroke-dashoffset 0.3s ease;
+}
+.icon-demo__checkbox[aria-checked="true"] .icon-demo__checkbox-check {
+  stroke-dashoffset: 0;
+}</code></pre>
+      <p>Step 2 (Demo 1) — the box "pops" by interpolating between two same-count point arrays, exactly like Phase 5a's Shape Morphing click demo:</p>
+      <pre><code class="language-javascript">const BOX_REST_POINTS = [[6, 6], [18, 6], [18, 18], [6, 18]];
+const BOX_CHECKED_POINTS = [[2, 2], [22, 2], [22, 22], [2, 22]];
+
+checkbox.addEventListener('click', () => {
+  const isChecked = checkbox.getAttribute('aria-checked') === 'true';
+  const from = isChecked ? BOX_CHECKED_POINTS : BOX_REST_POINTS;
+  const to = isChecked ? BOX_REST_POINTS : BOX_CHECKED_POINTS;
+  checkbox.setAttribute('aria-checked', String(!isChecked));
+  // ...eased requestAnimationFrame loop calling
+  // boxPath.setAttribute('d', interpolatePath(from, to, eased)) each frame
+});</code></pre>
+      <p>Step 3 (Demo 2) — the SMIL version needs a translate wrapper to scale from its visual center, and a JS-callable trigger:</p>
+      <pre><code class="language-markup">&lt;g transform="translate(12,12)"&gt;
+  &lt;circle cx="0" cy="0" r="8" fill="var(--color-accent)"&gt;
+    &lt;animateTransform id="like-smil-anim" attributeName="transform"
+      type="scale" begin="indefinite" dur="0.4s"
+      values="1;1.4;1" keyTimes="0;0.5;1" fill="remove" /&gt;
+  &lt;/circle&gt;
+&lt;/g&gt;</code></pre>
+      <pre><code class="language-javascript">likeBtnSmil.addEventListener('click', () => {
+  likeSmilAnim.beginElement();
+});</code></pre>
+      <p>Step 4 (Demo 2) — the CSS version needs no wrapper, only <code>transform-box</code>, and restarts itself via the standard remove/reflow/re-add pattern:</p>
+      <pre><code class="language-css">.icon-demo__like-dot--css {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.icon-demo__like-dot--css.is-pulsing {
+  animation: like-pulse 0.4s ease;
+}
+@keyframes like-pulse {
+  50% { transform: scale(1.4); }
+}</code></pre>
+      <p>Step 5 (Demo 3) — the SMIL spinner rotates continuously with no JS at all, since <code>type="rotate"</code> can specify its own center directly:</p>
+      <pre><code class="language-markup">&lt;animateTransform attributeName="transform" type="rotate"
+  from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite" /&gt;</code></pre>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo">
+        <button type="button" class="icon-demo__checkbox" id="icon-checkbox" role="checkbox" aria-checked="false" aria-label="Example checkbox combining path drawing and shape morphing">
+          <svg viewBox="0 0 24 24" width="48" height="48" aria-hidden="true">
+            <path id="icon-checkbox-box" class="icon-demo__checkbox-box" d="M6 6 L18 6 L18 18 L6 18 Z" />
+            <path id="icon-checkbox-check" class="icon-demo__checkbox-check" pathLength="100" d="M5 12 L10 17 L19 6" />
+          </svg>
+        </button>
+      </div>
+      <div class="demo">
+        <div class="icon-demo__like-row">
+          <button type="button" class="icon-demo__like-btn" id="like-btn-smil" aria-label="Like (SMIL-driven)">
+            <svg viewBox="0 0 24 24" width="32" height="32" aria-hidden="true">
+              <g transform="translate(12,12)">
+                <circle class="icon-demo__like-dot" cx="0" cy="0" r="8" fill="var(--color-accent)">
+                  <animateTransform id="like-smil-anim" attributeName="transform" type="scale" begin="indefinite" dur="0.4s" values="1;1.4;1" keyTimes="0;0.5;1" fill="remove" />
+                </circle>
+              </g>
+            </svg>
+          </button>
+          <button type="button" class="icon-demo__like-btn" id="like-btn-css" aria-label="Like (CSS-driven)">
+            <svg viewBox="0 0 24 24" width="32" height="32" aria-hidden="true">
+              <circle class="icon-demo__like-dot icon-demo__like-dot--css" id="like-dot-css" cx="12" cy="12" r="8" fill="var(--color-accent)" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="demo">
+        <div class="icon-demo__spinner-row">
+          <svg class="icon-demo__spinner" viewBox="0 0 24 24" width="40" height="40" aria-hidden="true">
+            <circle class="icon-demo__spinner-ring" cx="12" cy="12" r="9" fill="none" stroke="var(--color-accent)" stroke-width="3" stroke-dasharray="40 16" stroke-linecap="round">
+              <animateTransform id="spinner-smil-anim" attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite" />
+            </circle>
+          </svg>
+          <svg class="icon-demo__spinner" viewBox="0 0 24 24" width="40" height="40" aria-hidden="true">
+            <circle class="icon-demo__spinner-ring icon-demo__spinner-ring--css" cx="12" cy="12" r="9" fill="none" stroke="var(--color-accent)" stroke-width="3" stroke-dasharray="40 16" stroke-linecap="round" />
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Add a third checkbox state (indeterminate) with its own box-morph point array, sized between the rest and checked states.</li>
+        <li>Change Demo 2's SMIL <code>values</code> from <code>"1;1.4;1"</code> to a 4-keyframe bounce and compare how much more verbose the SMIL markup becomes versus adding a CSS keyframe.</li>
+        <li>Add a Play/Pause button that calls <code>pauseAnimations()</code>/<code>unpauseAnimations()</code> on Demo 3's SMIL spinner's root <code>&lt;svg&gt;</code>, independent of the reduced-motion check.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Assuming the sitewide CSS <code>prefers-reduced-motion</code> rule silences SMIL animations too — it doesn't, since SMIL isn't CSS. Any SMIL animation on a real site needs its own explicit check, as Demo 3's spinner shows.</li>
+        <li>Applying <code>animateTransform type="scale"</code> directly to a circle without a translate wrapper — the circle visibly drifts toward the coordinate origin as it scales, instead of growing/shrinking in place.</li>
+        <li>Forgetting the reflow-forcing step before re-adding a CSS animation class on a rapid second click — without it, the browser may batch the class removal and re-addition into one recalculation and the animation silently never restarts.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        Demo 1's box-morph is a geometry change (like all of Phase 5a's
+        shape morphing, not composite-only). Demos 2 and 3's pulse/spin
+        are ordinary <code>transform</code> changes underneath — whether
+        driven by SMIL or CSS, both stay composite-only, since neither
+        touches layout or paint. The animation *system* (SMIL vs CSS)
+        doesn't change this; only the *property* being animated does.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        Demo 1 is a real toggle with <code>role="checkbox"</code> and
+        <code>aria-checked</code>, fully keyboard-operable and correctly
+        announced by assistive tech regardless of whether its animation
+        runs. Demos 2 and 3 are decorative reinforcement of state changes
+        that already have other indicators (a like count would change
+        elsewhere in a real UI; a spinner implies a loading state
+        communicated some other way, e.g. <code>aria-busy</code>) — this
+        chapter's simplified stand-ins don't wire that up since it's
+        outside this chapter's scope, but a real implementation must.
+        Both SMIL and CSS motion in this chapter respect reduced-motion
+        preferences, per the Browser Internals section's explicit
+        SMIL-specific handling.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        All three demos are click/tap-driven or fully automatic — none
+        depend on hover or a mouse-only input, so they behave identically
+        on touch devices.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>SMIL (<code>&lt;animate&gt;</code>/<code>&lt;animateTransform&gt;</code>)</td><td>4+</td><td>4+</td><td>3.1+</td><td>Universally supported; despite a 2015 Chrome deprecation intent, it remains shipped everywhere (see the SMIL vs CSS vs JS chapter).</td></tr>
+          <tr><td><code>transform-box: fill-box</code></td><td>79+</td><td>55+</td><td>13.1+</td><td>Universally supported in evergreen browsers.</td></tr>
+          <tr><td><code>SVGSVGElement.pauseAnimations()</code></td><td>4+</td><td>4+</td><td>4+</td><td>Part of the standard SVG DOM, universally supported.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="animated-icons.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

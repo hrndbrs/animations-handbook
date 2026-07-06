@@ -1,0 +1,28 @@
+/* docs/svg/svg-filters.css
+   Two demos, both driving <filter> primitive attributes from JS since
+   CSS custom properties/var() cannot reach into a referenced filter's
+   internals at all. */
+
+.filter-demo__card {
+  max-width: 280px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  background: var(--color-surface);
+  border: 1px solid #24262f;
+  border-radius: 12px;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.filter-demo__liquid {
+  max-width: 280px;
+  margin: 0 auto;
+  padding: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 12px;
+}

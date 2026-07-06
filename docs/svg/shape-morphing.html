@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shape Morphing — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="shape-morphing.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/svg/shape-morphing.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Shape Morphing</h1>
+    <p>Turning one SVG shape into another, without a library to solve the "which point maps to which" problem for you.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        Morphing one path into another only makes sense if both paths are
+        built from the same number of points, in the same order and
+        command structure — a browser (or your own code) can't guess which
+        point on shape A corresponds to which point on shape B if the two
+        shapes have differing numbers of points. This is why arbitrary
+        "morph any shape into any other shape" tools always do point-count
+        matching/insertion behind the scenes; without a library, the two
+        options are hand-authoring compatible paths (this chapter's Demos
+        1 and 3, both 4- and 12-point shapes respectively) or writing your
+        own interpolation over matched point arrays (Demos 2 and 3, via
+        <code>utils/svg-morph.js</code>).
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        Animating the <code>d</code> property directly (Demo 1) changes
+        the path's actual geometry every frame — unlike Path Drawing's
+        <code>stroke-dashoffset</code>, this is a paint-*and*-potentially-layout
+        operation, since the browser must recompute the shape's fill/stroke
+        geometry on every step, not just reveal/hide a fixed shape's
+        segments. Chromium and Firefox implement native point-by-point
+        interpolation for CSS <code>d</code> transitions, but only when
+        both <code>d</code> values have the same command structure — this
+        is exactly the same constraint as the JS-driven approach, just
+        enforced by the browser instead of by your own code. Safari does
+        not support animating <code>d</code> via CSS at all as of this
+        writing, which is precisely why Demos 2 and 3 exist: a
+        JS-computed <code>d</code> string works identically everywhere.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 (Demo 1) — set an initial <code>d</code> attribute directly on the path as a fallback, then let CSS override it via the animatable <code>d</code> property on hover:</p>
+      <pre><code class="language-css">.morph-demo__css-shape {
+  transition: d 0.5s ease;
+}
+.morph-demo__css-stage:hover .morph-demo__css-shape {
+  d: path("M50 10 L90 50 L50 90 L10 50 Z");
+}</code></pre>
+      <p>Step 2 (Demo 2) — define two same-length point arrays and interpolate between them every frame using a value that oscillates smoothly between 0 and 1:</p>
+      <pre><code class="language-javascript">import { interpolatePath } from '../../utils/svg-morph.js';
+
+const SQUARE_POINTS = [[20, 20], [80, 20], [80, 80], [20, 80]];
+const DIAMOND_POINTS = [[50, 10], [90, 50], [50, 90], [10, 50]];
+
+function animateLoop(timestamp) {
+  const t = (Math.sin(timestamp / 1000) + 1) / 2;
+  loopPath.setAttribute('d', interpolatePath(SQUARE_POINTS, DIAMOND_POINTS, t));
+  requestAnimationFrame(animateLoop);
+}
+requestAnimationFrame(animateLoop);</code></pre>
+      <p>Step 3 (Demo 3) — a click-triggered, one-shot morph reuses the same helper, but drives <code>t</code> from an eased duration instead of a continuous oscillation, and disables its own trigger while running to prevent a second click from starting a competing animation mid-flight:</p>
+      <pre><code class="language-javascript">function stepIconMorph(timestamp, from, to, startTime) {
+  const rawProgress = Math.min((timestamp - startTime) / MORPH_DURATION_MS, 1);
+  iconPath.setAttribute('d', interpolatePath(from, to, easeInOutQuad(rawProgress)));
+  if (rawProgress < 1) {
+    requestAnimationFrame((next) => stepIconMorph(next, from, to, startTime));
+  } else {
+    iconTrigger.disabled = false;
+  }
+}
+
+iconTrigger.addEventListener('click', () => {
+  iconTrigger.disabled = true;
+  requestAnimationFrame((timestamp) => stepIconMorph(timestamp, from, to, timestamp));
+});</code></pre>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo">
+        <p>Hover-triggered (pure CSS, animating the <code>d</code> property directly):</p>
+        <div class="morph-demo__css-stage">
+          <svg class="morph-demo__figure" viewBox="0 0 100 100" aria-hidden="true">
+            <path id="morph-css-shape" class="morph-demo__shape morph-demo__css-shape" d="M20 20 L80 20 L80 80 L20 80 Z" />
+          </svg>
+        </div>
+      </div>
+      <div class="demo">
+        <p>Continuous point-interpolation loop (JS, square &#8596; diamond):</p>
+        <svg class="morph-demo__figure" viewBox="0 0 100 100" aria-hidden="true">
+          <path id="morph-loop-path" class="morph-demo__shape" d="M20 20 L80 20 L80 80 L20 80 Z" />
+        </svg>
+      </div>
+      <div class="demo">
+        <button type="button" class="morph-demo__icon-trigger" id="morph-icon-trigger" aria-pressed="false" aria-label="Toggle between plus and cross shape">
+          <svg class="morph-demo__figure" viewBox="0 0 100 100" width="60" height="60" aria-hidden="true">
+            <path id="morph-icon-path" class="morph-demo__shape" d="M42 10 L58 10 L58 42 L90 42 L90 58 L58 58 L58 90 L42 90 L42 58 L10 58 L10 42 L42 42 Z" />
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Change Demo 2's oscillation from <code>Math.sin(timestamp / 1000)</code> to a faster or slower divisor and observe how the perceived "breathing" speed changes.</li>
+        <li>Add a third shape (e.g. a triangle re-drawn as a 4-point shape with one repeated point) and cycle Demo 2 through all three instead of just two.</li>
+        <li>Swap Demo 3's <code>easeInOutQuad</code> for <code>easeOutCubic</code> (both already exported from <code>utils/easing.js</code>) and compare how the morph's motion feels.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Interpolating between two point arrays with different lengths — <code>interpolatePath</code> throws immediately rather than silently producing a broken shape, precisely so this mistake fails loudly during development instead of rendering garbage.</li>
+        <li>Relying on Demo 1's CSS-only <code>d</code> transition as the only morph technique in a project that must support Safari — it silently does nothing there (the <code>d</code> property change simply doesn't animate), which is why Demos 2/3's JS-interpolation approach exists as the universally-working alternative.</li>
+        <li>Not disabling Demo 3's trigger button while its animation is running — clicking again mid-morph would start a second <code>requestAnimationFrame</code> chain racing the first over the same <code>d</code> attribute, the same class of bug Phase 3's Typing and Counter chapters hit with unguarded re-triggering.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        All three demos animate actual path geometry, which is a
+        paint-and-potentially-layout operation, not composite-only —
+        genuinely more expensive per frame than this handbook's
+        transform-driven demos (Phases 2 and 4) or even Path Drawing's
+        <code>stroke-dashoffset</code> technique. For a handful of small
+        shapes like these, the cost is negligible; for many
+        simultaneously-morphing complex paths, prefer simplifying point
+        counts or morphing fewer shapes at once.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        Demo 1's shapes are purely decorative (<code>aria-hidden="true"</code>),
+        and its hover-only trigger needs no keyboard equivalent for the
+        same reason established in this handbook's Hover Reveal &amp;
+        Image Distortion chapter (Phase 4) — no functional content depends
+        on it. Demo 2's loop requires no interaction and runs identically
+        regardless of input method, and checks
+        <code>prefers-reduced-motion</code> in JS (freezing at the midpoint
+        instead of oscillating) since a CSS media query cannot stop a
+        <code>requestAnimationFrame</code> loop. Demo 3 is a real
+        <code>&lt;button&gt;</code>, fully keyboard-operable via Tab and
+        Enter/Space, and uses <code>aria-pressed</code> so screen reader
+        users get an explicit state announcement ("pressed"/"not pressed")
+        rather than only a visual shape change.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        Demo 1's <code>:hover</code> won't auto-trigger on touch without a
+        mouse/trackpad — an acceptable degradation for a purely decorative
+        demo. Demo 2's loop runs identically on any device, touch included.
+        Demo 3 is a real button and works via tap exactly as it does via
+        click, no touch-specific handling needed.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Animating <code>d</code> via CSS</td><td>79+</td><td>73+</td><td>Not supported</td><td>Demo 1 only; Demos 2/3's JS approach works everywhere instead.</td></tr>
+          <tr><td><code>requestAnimationFrame</code></td><td>24+</td><td>23+</td><td>6.1+</td><td>Universally supported.</td></tr>
+          <tr><td>Setting <code>d</code> via <code>setAttribute</code></td><td>4+</td><td>4+</td><td>4+</td><td>Baseline SVG DOM, universally supported.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="shape-morphing.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

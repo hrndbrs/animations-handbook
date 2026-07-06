@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SVG Filters &amp; Effects — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="svg-filters.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/svg/svg-filters.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>SVG Filters &amp; Effects</h1>
+    <p>Blur, noise, and displacement — and why none of it can be driven by a CSS custom property.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        An SVG <code>&lt;filter&gt;</code> is a small pipeline of primitive
+        operations (<code>feGaussianBlur</code>, <code>feTurbulence</code>,
+        <code>feDisplacementMap</code>, and others) applied to an element
+        referenced via <code>filter: url(#id)</code>. Each primitive has
+        its own attributes — <code>stdDeviation</code>,
+        <code>baseFrequency</code>, <code>scale</code> — but these live
+        inside the filter's own internal graph, not on the styled element
+        itself. <strong>CSS custom properties cannot reach into a
+        referenced filter's primitive attributes at all</strong> — there
+        is no <code>var()</code> bridge into filter internals. The only
+        two ways to animate them are JS <code>setAttribute</code> (used by
+        both demos here) and SMIL <code>&lt;animate&gt;</code> targeting
+        the primitive element directly.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        Applying a filter forces the browser to rasterize the affected
+        element into an offscreen buffer, run the filter's pixel-level
+        operations against it (a blur convolution; noise generation and
+        remapping for turbulence/displacement), then composite the result
+        back into the page. This is a fundamentally different and more
+        expensive pipeline than anything else in this handbook — not
+        paint-only (Path Drawing's <code>stroke-dashoffset</code>), not
+        geometry-only (Shape Morphing's <code>d</code> changes), but a
+        full rasterize-and-reprocess step, repeated every frame these
+        demos run.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — the filter and its primitive live in a hidden <code>&lt;svg&gt;</code>, referenced from the target element via <code>filter: url(#id)</code>:</p>
+      <pre><code class="language-markup">&lt;svg width="0" height="0" style="position:absolute"&gt;
+  &lt;filter id="blur-filter"&gt;
+    &lt;feGaussianBlur id="blur-primitive" in="SourceGraphic" stdDeviation="0" /&gt;
+  &lt;/filter&gt;
+&lt;/svg&gt;
+&lt;div id="blur-card" style="filter: url(#blur-filter)" tabindex="0"&gt;...&lt;/div&gt;</code></pre>
+      <p>Step 2 — animate the primitive's own attribute directly from JS, lerping toward a target each frame exactly like Phase 4's Cursor Follower did for pointer position:</p>
+      <pre><code class="language-javascript">import { lerp } from '../../utils/math.js';
+
+let blurCurrent = 0;
+let blurTarget = 0;
+
+function animateBlur() {
+  blurCurrent = lerp(blurCurrent, blurTarget, 0.2);
+  blurPrimitive.setAttribute('stdDeviation', blurCurrent.toFixed(2));
+  if (Math.abs(blurTarget - blurCurrent) > 0.05) {
+    requestAnimationFrame(animateBlur);
+  }
+}
+
+blurCard.addEventListener('pointerenter', () => { blurTarget = 6; animateBlur(); });
+blurCard.addEventListener('pointerleave', () => { blurTarget = 0; animateBlur(); });</code></pre>
+      <p>Step 3 — the "liquid" demo continuously wobbles <code>feTurbulence</code>'s <code>baseFrequency</code>, producing an organic, undulating displacement with no user interaction required:</p>
+      <pre><code class="language-javascript">function animateLiquid(timestamp) {
+  const wobble = Math.sin(timestamp / 800) * 0.01 + 0.02;
+  turbulence.setAttribute('baseFrequency', `${wobble.toFixed(4)} 0.04`);
+  requestAnimationFrame(animateLiquid);
+}
+requestAnimationFrame(animateLiquid);</code></pre>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <filter id="blur-filter">
+          <feGaussianBlur id="blur-primitive" in="SourceGraphic" stdDeviation="0" />
+        </filter>
+        <filter id="liquid-filter">
+          <feTurbulence id="liquid-turbulence" type="turbulence" baseFrequency="0.02 0.04" numOctaves="2" seed="2" result="turbulence" />
+          <feDisplacementMap id="liquid-displacement" in="SourceGraphic" in2="turbulence" scale="20" />
+        </filter>
+      </svg>
+      <div class="demo">
+        <div class="filter-demo__card" id="blur-card" tabindex="0" style="filter: url(#blur-filter)">
+          <p>Focus or hover to blur</p>
+        </div>
+      </div>
+      <div class="demo">
+        <div class="filter-demo__liquid" id="liquid-box" style="filter: url(#liquid-filter)">Liquid</div>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Change Demo 1's <code>BLUR_MAX</code> from <code>6</code> to <code>20</code> and observe how much more expensive-looking (and slower to settle) the effect becomes.</li>
+        <li>Add a second <code>feColorMatrix</code> primitive after the blur, animating its saturation attribute alongside the blur.</li>
+        <li>Replace Demo 2's continuous <code>Math.sin</code> wobble with a value driven by the cursor's horizontal position, so the liquid effect responds to pointer movement instead of running on its own.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Trying to animate a filter primitive's attribute with a CSS custom property and <code>var()</code> — this silently does nothing, since CSS variables cannot reach into a referenced filter's internal graph at all.</li>
+        <li>Forgetting the <code>prefers-reduced-motion</code> check on Demo 1 — unlike Phase 4's custom-property-driven demos, this one has no CSS transition backing it (JS sets the attribute directly every frame), so the sitewide CSS rule does nothing for it; it needs its own explicit check.</li>
+        <li>Changing <code>feTurbulence</code>'s <code>seed</code> attribute every frame for "randomness" — this produces a jarring, discontinuous flicker instead of smooth motion, since each seed generates an unrelated noise pattern; animating <code>baseFrequency</code> smoothly (as Demo 2 does) is the way to get organic continuous motion.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        This is the most expensive category of effect in this handbook.
+        Both demos force per-frame rasterization and pixel-level
+        reprocessing of their target element — genuinely more costly than
+        Phase 5a's geometry-changing <code>d</code> morphs, which only
+        recompute a path's shape, not reprocess its rendered pixels.
+        Keep filtered regions small, avoid filtering large parts of a
+        page, and prefer triggering these effects on discrete interaction
+        (like Demo 1's hover/focus) over always-on loops (like Demo 2)
+        where the effect isn't essential to the page's content.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        Demo 1's card is focusable (<code>tabindex="0"</code>) specifically
+        because its blur is triggered by both <code>:hover</code>-equivalent
+        pointer entry and keyboard focus (the JS listens for both
+        <code>pointerenter</code>/<code>pointerleave</code> and
+        <code>focus</code>/<code>blur</code>), so keyboard users get the
+        same effect mouse users do. Demo 2's liquid effect is purely
+        decorative and requires no interaction, so there's no
+        keyboard-parity concern for it. Both check
+        <code>prefers-reduced-motion</code> directly in JS, since neither
+        is a CSS transition the sitewide rule could otherwise cover.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        Demo 1's blur triggers on tap-and-hold in the same way any
+        <code>:hover</code>-equivalent does on touch (inconsistently across
+        browsers, and not on release) — an acceptable degradation for a
+        decorative focus/hover enhancement. Demo 2's liquid effect runs
+        identically regardless of input device, since it needs no
+        interaction at all.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>feGaussianBlur</code></td><td>5+</td><td>3+</td><td>5+</td><td>Universally supported.</td></tr>
+          <tr><td><code>feTurbulence</code> / <code>feDisplacementMap</code></td><td>5+</td><td>3+</td><td>6+</td><td>Universally supported.</td></tr>
+          <tr><td>Setting filter primitive attributes via <code>setAttribute</code></td><td>4+</td><td>4+</td><td>4+</td><td>Baseline SVG DOM, universally supported.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="svg-filters.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

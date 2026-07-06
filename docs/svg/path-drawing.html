@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Path Drawing — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="path-drawing.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/svg/path-drawing.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Path Drawing</h1>
+    <p>Making an SVG stroke look like it's being drawn in real time, three different ways.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        The "line draw" effect works by hiding the stroke behind a dash
+        pattern exactly as long as the path itself, then sliding that dash
+        pattern back into view. <code>stroke-dasharray</code> sets the
+        length of the dash (and the gap after it); <code>stroke-dashoffset</code>
+        shifts where along the path that pattern starts. Set both to the
+        path's full length and the entire stroke is one long "dash"
+        pushed completely out of view; animate <code>stroke-dashoffset</code>
+        down to <code>0</code> and the dash slides back into place,
+        reading as the line drawing itself in.
+      </p>
+      <p>
+        Getting "the path's full length" can happen two ways. The
+        <code>pathLength</code> attribute lets you tell the browser to
+        treat the path as if it were exactly <code>100</code> units long
+        (or any number you choose), regardless of its real rendered size —
+        so CSS can always use the same round number without knowing the
+        path's actual geometry. <code>path.getTotalLength()</code> instead
+        asks the browser for the path's real, geometry-dependent length in
+        user units — the technique to use in JS when you'd rather measure
+        the real thing than hardcode a normalized attribute.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        Changing <code>stroke-dashoffset</code> doesn't change the path's
+        geometry or bounding box — the underlying shape is identical, only
+        which segments of it are painted visible changes. That makes it
+        cheaper than animating actual path geometry (see the Shape
+        Morphing chapter), but it is still a paint-invalidating property,
+        not a compositor-only one like <code>transform</code>/<code>opacity</code> —
+        the browser has to repaint the affected region on every frame the
+        offset changes, it just doesn't have to re-run layout.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 (Demo 1) — measure the path's real length in JS, then set both dasharray and dashoffset to that value so the whole stroke starts hidden:</p>
+      <pre><code class="language-javascript">const pathLength = scrollPath.getTotalLength();
+scrollPath.style.strokeDasharray = `${pathLength}`;
+scrollPath.style.strokeDashoffset = `${pathLength}`;</code></pre>
+      <p>Step 2 (Demo 1) — reveal it once, the first time it scrolls into view, reusing Phase 1's IntersectionObserver reveal pattern:</p>
+      <pre><code class="language-javascript">const observer = new IntersectionObserver((entries) => {
+  entries.forEach((entry) => {
+    if (entry.isIntersecting) {
+      scrollPath.style.strokeDashoffset = '0';
+      observer.unobserve(scrollPath);
+    }
+  });
+}, { threshold: 0.4 });
+
+observer.observe(scrollPath);</code></pre>
+      <p>Step 3 (Demos 2 &amp; 3) — with <code>pathLength="100"</code> set on the <code>&lt;path&gt;</code> element itself, CSS can hardcode a normalized dash length and do the rest with no JS:</p>
+      <pre><code class="language-css">.draw-demo__hover-path {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  transition: stroke-dashoffset 0.6s ease;
+}
+.draw-demo__hover-stage:hover .draw-demo__hover-path {
+  stroke-dashoffset: 0;
+}</code></pre>
+      <p>Step 4 (Demo 3) — a looping draw-and-erase uses a dasharray with an equal-length gap, then animates the offset a full pattern-length further than a single draw would, which pushes the dash back out of view on the far side instead of stopping fully drawn:</p>
+      <pre><code class="language-css">.draw-demo__loop-path {
+  stroke-dasharray: 100 100;
+  animation: draw-loop 3s ease-in-out infinite;
+}
+@keyframes draw-loop {
+  0% { stroke-dashoffset: 100; }
+  50% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -100; }
+}</code></pre>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo">
+        <p>Scroll-triggered (length measured via <code>getTotalLength()</code>):</p>
+        <svg class="draw-demo__figure" viewBox="0 0 220 100" aria-hidden="true">
+          <path id="draw-scroll-path" class="draw-demo__path" d="M10 90 L60 20 L110 90 L160 20 L210 90" />
+        </svg>
+      </div>
+      <div class="demo">
+        <p>Hover-triggered (pure CSS, using <code>pathLength</code>):</p>
+        <div class="draw-demo__hover-stage">
+          <svg class="draw-demo__figure" viewBox="0 0 220 100" aria-hidden="true">
+            <path id="draw-hover-path" class="draw-demo__path draw-demo__hover-path" pathLength="100" d="M10 90 L60 20 L110 90 L160 20 L210 90" />
+          </svg>
+        </div>
+      </div>
+      <div class="demo">
+        <p>Looping draw-and-erase (pure CSS, using <code>pathLength</code>):</p>
+        <svg class="draw-demo__figure" viewBox="0 0 220 100" aria-hidden="true">
+          <path id="draw-loop-path" class="draw-demo__path draw-demo__loop-path" pathLength="100" d="M10 90 L60 20 L110 90 L160 20 L210 90" />
+        </svg>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Change Demo 1's threshold from <code>0.4</code> to <code>1</code> and observe how much further into view the path must scroll before it draws.</li>
+        <li>Give Demo 3's loop a visible pause at fully-drawn by adjusting the keyframe percentages (e.g. hold at <code>0</code> from 40% to 60% instead of a single instant at 50%).</li>
+        <li>Replace the zigzag path with a longer, more complex one (e.g. a wavy signature-style curve using cubic Béziers) and confirm all three demos still work without any JS/CSS changes.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Setting <code>stroke-dasharray</code> without also setting a matching <code>stroke-dashoffset</code> starting value — the dash pattern exists but starts fully visible, so nothing appears to animate.</li>
+        <li>Mixing a hardcoded pixel dasharray value with the <code>pathLength</code> attribute — once <code>pathLength</code> is set, all dasharray/dashoffset values on that path are interpreted in the normalized 0-100 unit space, not real pixels, so a hardcoded pixel-length value from a different technique will be wrong.</li>
+        <li>Forgetting <code>fill: none</code> on a closed/filled shape being "drawn" — the fill renders immediately regardless of the stroke's dash animation, so the shape appears solid from frame one instead of outlining in first.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        Unlike almost every other demo in this handbook, this one is not
+        composite-only: <code>stroke-dashoffset</code> is a paint
+        property, so the browser repaints the path's stroke region on
+        every change. This is still comparatively cheap (no layout, no
+        geometry recalculation, just a segment of a fixed shape becoming
+        visible/invisible), and stays fast for a handful of simultaneously
+        drawing paths — it's specifically the *geometry* changes covered
+        in the Shape Morphing chapter that get expensive, not this one.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        All three paths are purely decorative illustrations of the
+        technique (<code>aria-hidden="true"</code>) with no unique
+        information conveyed beyond what the surrounding prose already
+        states — a keyboard-only or screen-reader user loses nothing by
+        never triggering Demo 2's hover reveal, matching the same
+        reasoning this handbook's Hover Reveal &amp; Image Distortion
+        chapter (Phase 4) already established for purely decorative
+        pointer effects. Demo 1's scroll reveal and Demo 3's loop both
+        happen automatically regardless of input method or focus state,
+        so there's no keyboard-parity gap for either of them.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        Demo 1's scroll trigger and Demo 3's loop both work identically on
+        touch devices — neither depends on a pointer at all. Demo 2's
+        <code>:hover</code> won't auto-trigger on a touchscreen without a
+        mouse/trackpad, so touch users simply see it at rest; an
+        acceptable degradation for a purely decorative demonstration of
+        the technique.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>stroke-dasharray</code>/<code>stroke-dashoffset</code></td><td>4+</td><td>3+</td><td>3.1+</td><td>Baseline SVG 1.1 feature, universally supported.</td></tr>
+          <tr><td><code>pathLength</code> attribute</td><td>41+</td><td>46+</td><td>11.1+</td><td>Universally supported in evergreen browsers.</td></tr>
+          <tr><td><code>path.getTotalLength()</code></td><td>4+</td><td>4+</td><td>4+</td><td>Part of the standard SVG DOM, universally supported.</td></tr>
+          <tr><td>IntersectionObserver</td><td>51+</td><td>55+</td><td>12.1+</td><td>Universally supported in evergreen browsers.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="path-drawing.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

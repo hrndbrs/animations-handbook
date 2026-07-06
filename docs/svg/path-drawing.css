@@ -1,0 +1,57 @@
+/* docs/svg/path-drawing.css
+   Three ways to animate the same "stroke draws itself in" effect. Demo
+   1's dasharray/dashoffset values are set entirely from JS (via
+   path.getTotalLength()), so this file only adds the transition for it.
+   Demos 2 and 3 use the pathLength="100" attribute instead, which lets
+   this CSS hardcode a normalized 0-100 dash length regardless of the
+   path's actual on-screen size. */
+
+.draw-demo__figure {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  margin: 0 auto;
+}
+
+.draw-demo__path {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Demo 1: scroll-triggered, dasharray/dashoffset set from JS */
+#draw-scroll-path {
+  transition: stroke-dashoffset 1.5s ease;
+}
+
+/* Demo 2: hover-triggered, pure CSS using the normalized pathLength unit */
+.draw-demo__hover-path {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  transition: stroke-dashoffset 0.6s ease;
+}
+
+.draw-demo__hover-stage:hover .draw-demo__hover-path {
+  stroke-dashoffset: 0;
+}
+
+/* Demo 3: looping draw-and-erase, pure CSS */
+.draw-demo__loop-path {
+  stroke-dasharray: 100 100;
+  animation: draw-loop 3s ease-in-out infinite;
+}
+
+@keyframes draw-loop {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  50% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -100;
+  }
+}

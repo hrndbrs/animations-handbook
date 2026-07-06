@@ -1,0 +1,84 @@
+/* docs/svg/smil-css-js-comparison.css
+   Three panels, each showing the identical effect (a stroke draws in,
+   then the shape spins continuously) via a different mechanism. Only the
+   JS panel gets interactive Pause/Resume controls -- that asymmetry is
+   deliberate and is itself part of the lesson (see the chapter's Theory
+   section). */
+
+.comparison-demo__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  justify-content: center;
+}
+
+.comparison-demo__panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background: var(--color-surface);
+  border: 1px solid #24262f;
+  border-radius: 12px;
+  min-width: 140px;
+}
+
+.comparison-demo__panel-label {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.comparison-demo__shape {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+/* CSS panel: draw-in via stroke-dashoffset, then rotation via a second
+   animation whose animation-delay is hardcoded to match the first's
+   known duration -- the fragile coupling called out in the Theory
+   section, contrasted against SMIL's begin="id.end". */
+.comparison-demo__shape--css {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation:
+    comparison-draw 1s ease forwards,
+    comparison-spin 1.5s linear infinite 1s;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes comparison-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes comparison-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.comparison-demo__controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.comparison-demo__controls button {
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.comparison-demo__controls button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

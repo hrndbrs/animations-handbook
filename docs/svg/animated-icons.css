@@ -1,0 +1,88 @@
+/* docs/svg/animated-icons.css
+   Three demos: (1) an accessible checkbox combining a point-interpolated
+   box "pop" (utils/svg-morph.js) with a stroke-dashoffset checkmark draw
+   (Phase 5a's Path Drawing technique) -- driven by the same click, two
+   different mechanisms, no CSS animation on the box (its `d` is set
+   directly from JS every frame); (2)/(3) the same effect (a pulse, a
+   spin) shown once via SMIL and once via CSS, side by side. */
+
+.icon-demo__checkbox {
+  display: block;
+  margin: 0 auto;
+  padding: 1rem;
+  background: var(--color-surface);
+  border: 1px solid #24262f;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.icon-demo__checkbox-box {
+  fill: none;
+  stroke: var(--color-text-muted);
+  stroke-width: 2;
+}
+
+.icon-demo__checkbox-check {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.icon-demo__checkbox[aria-checked="true"] .icon-demo__checkbox-check {
+  stroke-dashoffset: 0;
+}
+
+.icon-demo__like-row {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+}
+
+.icon-demo__like-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+}
+
+/* CSS-driven pulse: transform-box/transform-origin is the CSS equivalent
+   of the <g transform="translate(...)"> wrapper the SMIL version needs --
+   it lets `transform: scale()` originate from the shape's own visual
+   center instead of the SVG coordinate system's (0,0). */
+.icon-demo__like-dot--css {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.icon-demo__like-dot--css.is-pulsing {
+  animation: like-pulse 0.4s ease;
+}
+
+@keyframes like-pulse {
+  50% {
+    transform: scale(1.4);
+  }
+}
+
+.icon-demo__spinner-row {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+}
+
+.icon-demo__spinner-ring--css {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: spinner-rotate 1s linear infinite;
+}
+
+@keyframes spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}

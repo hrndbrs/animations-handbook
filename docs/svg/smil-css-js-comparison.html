@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SMIL vs CSS vs JS Animation — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="smil-css-js-comparison.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/svg/smil-css-js-comparison.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>SMIL vs CSS vs JS Animation</h1>
+    <p>The same effect — a stroke draws in, then the shape spins forever — built three ways, so the tradeoffs are visible instead of abstract.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        This handbook has now used all three ways to animate SVG: SMIL
+        (Animated Icons), CSS (everywhere), and JS
+        (<code>requestAnimationFrame</code>, Path Drawing/Shape Morphing).
+        None of them is strictly "best" — each wins on a different axis.
+        This chapter builds the identical two-phase effect three times to
+        make that concrete rather than asserted.
+      </p>
+      <p>
+        The clearest single difference is sequencing. SMIL can start one
+        animation exactly when another finishes, by referencing its
+        <code>id</code>: <code>begin="draw.end"</code>. CSS has no
+        equivalent — a second <code>@keyframes</code> animation meant to
+        start after the first must use a hardcoded
+        <code>animation-delay</code> matching the first animation's known
+        duration, a coupling that silently drifts out of sync the moment
+        either duration changes without the other being updated to match.
+        JS has the opposite trade: it requires the most code (a manual
+        timeline), but in exchange offers the most control — this
+        chapter's JS panel is the only one with working Pause/Resume
+        buttons, because pausing/resuming an arbitrary point in an
+        animation is what a manual timeline gives you for free and
+        SMIL/CSS do not, without extra plumbing this chapter doesn't build
+        (SMIL does have <code>pauseAnimations()</code>/<code>unpauseAnimations()</code>
+        on the SVG root, which pause every SMIL animation in that
+        document at once — coarser than the JS panel's per-timeline
+        control).
+      </p>
+      <p>
+        One more real gotcha, found while building this exact demo:
+        <code>begin="id.end"</code> is standard, valid SMIL syntax (a
+        "syncbase" reference), but this project found that current
+        Chromium doesn't always reliably resolve it when it's the page's
+        only such chained animation — the first animation's
+        <code>endEvent</code> fires on schedule, but the dependent
+        element's begin never resolves and it never starts. The lesson
+        isn't "don't use syncbase timing"; it's that declarative
+        sequencing still benefits from a JS fallback for reliability
+        across engines. That's why the shipped SMIL panel pairs the
+        declarative reference with an explicit listener: the rotation
+        element is declared <code>begin="indefinite"</code>, and a
+        <code>smil-draw</code> <code>endEvent</code> listener calls
+        <code>.beginElement()</code> on it in JS — belt and suspenders,
+        not a workaround for broken syntax.
+      </p>
+      <p>
+        One persistent myth is worth correcting directly: SMIL is not
+        deprecated. Chrome announced an intent to deprecate it in 2015,
+        then reversed that decision in 2016 after developer pushback and
+        the recognition that no adequate replacement existed for several
+        of its capabilities. It remains implemented in every evergreen
+        browser today.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        All three panels animate the same two properties in the same
+        order: <code>stroke-dashoffset</code> during the draw-in (a paint
+        operation, per the Path Drawing chapter), then
+        <code>transform: rotate()</code> during the spin (composite-only).
+        The animation *system* driving those properties — SMIL, CSS, or a
+        JS <code>requestAnimationFrame</code> loop — does not change what
+        the browser has to do to render each property change; it only
+        changes who is responsible for computing the next value and when.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 (SMIL panel) — the draw-in and the rotation are two separate <code>&lt;animate&gt;</code>/<code>&lt;animateTransform&gt;</code> elements. The rotation is declared <code>begin="indefinite"</code> rather than a <code>smil-draw.end</code> syncbase reference, because current Chromium doesn't always reliably resolve that reference when it's the page's only chained SMIL animation — so a JS listener on <code>smil-draw</code>'s <code>endEvent</code> starts it explicitly instead:</p>
+      <pre><code class="language-markup">&lt;path id="smil-shape-path" class="comparison-demo__shape"&gt;
+  &lt;animate id="smil-draw" attributeName="stroke-dashoffset"
+    from="100" to="0" dur="1s" fill="freeze" /&gt;
+  &lt;animateTransform id="smil-rotate" attributeName="transform" type="rotate"
+    from="0" to="360" dur="1.5s" begin="indefinite" repeatCount="indefinite" /&gt;
+&lt;/path&gt;</code></pre>
+      <pre><code class="language-javascript">document.getElementById('smil-draw').addEventListener('endEvent', () => {
+  document.getElementById('smil-rotate').beginElement();
+});</code></pre>
+      <p>Step 2 (CSS panel) — the same two phases, but the rotation's start must be a hardcoded delay matching the draw's known duration:</p>
+      <pre><code class="language-css">.comparison-demo__shape--css {
+  animation:
+    comparison-draw 1s ease forwards,
+    comparison-spin 1.5s linear infinite 1s; /* the "1s" delay must match the draw's own duration by hand */
+}</code></pre>
+      <p>Step 3 (JS panel) — a manual timeline tracks elapsed time across frames, computing the correct phase and value directly, which is also what makes pausing trivial (just stop accumulating elapsed time):</p>
+      <pre><code class="language-javascript">function tick(timestamp) {
+  if (!isPaused) {
+    elapsed += timestamp - lastFrameTime;
+  }
+  lastFrameTime = timestamp;
+  render(); // sets stroke-dashoffset during the draw phase, then transform: rotate() after
+  requestAnimationFrame(tick);
+}</code></pre>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo">
+        <div class="comparison-demo__row">
+          <div class="comparison-demo__panel">
+            <span class="comparison-demo__panel-label">SMIL</span>
+            <svg id="smil-panel-svg" viewBox="0 0 60 60" width="60" height="60" aria-hidden="true">
+              <path id="smil-shape-path" class="comparison-demo__shape" pathLength="100" stroke-dasharray="100" d="M10 50 L30 10 L50 50 Z">
+                <animate id="smil-draw" attributeName="stroke-dashoffset" from="100" to="0" dur="1s" fill="freeze" />
+                <animateTransform id="smil-rotate" attributeName="transform" type="rotate" from="0 30 30" to="360 30 30" dur="1.5s" begin="indefinite" repeatCount="indefinite" />
+              </path>
+            </svg>
+          </div>
+          <div class="comparison-demo__panel">
+            <span class="comparison-demo__panel-label">CSS</span>
+            <svg viewBox="0 0 60 60" width="60" height="60" aria-hidden="true">
+              <path class="comparison-demo__shape comparison-demo__shape--css" pathLength="100" d="M10 50 L30 10 L50 50 Z" />
+            </svg>
+          </div>
+          <div class="comparison-demo__panel">
+            <span class="comparison-demo__panel-label">JS</span>
+            <svg viewBox="0 0 60 60" width="60" height="60" aria-hidden="true">
+              <path id="js-shape-path" class="comparison-demo__shape" d="M10 50 L30 10 L50 50 Z" />
+            </svg>
+            <div class="comparison-demo__controls">
+              <button type="button" id="js-pause-btn">Pause</button>
+              <button type="button" id="js-resume-btn" disabled>Resume</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Change the CSS panel's draw duration from <code>1s</code> to <code>2s</code> without updating its rotation's hardcoded <code>1s</code> delay, and observe the rotation starting visibly before the draw finishes — the exact drift this chapter's Theory section describes.</li>
+        <li>Add a Pause/Resume pair for the SMIL panel using <code>pauseAnimations()</code>/<code>unpauseAnimations()</code> on its root <code>&lt;svg&gt;</code>, and compare its coarseness (it pauses every SMIL animation in that SVG at once) against the JS panel's single-timeline control.</li>
+        <li>Add a fourth panel using the Web Animations API (<code>element.animate(...)</code>) — a fourth real option this chapter doesn't cover, sitting between CSS's declarative simplicity and JS's full manual control.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Repeating the old "SMIL is deprecated" claim — it isn't; Chrome's 2015 deprecation intent was reversed in 2016, and it remains supported in every evergreen browser.</li>
+        <li>Assuming the sitewide CSS <code>prefers-reduced-motion</code> rule covers the SMIL panel — it doesn't (see Phase 5b's Animated Icons chapter); this chapter's SMIL panel is paused explicitly in JS instead.</li>
+        <li>Hardcoding a CSS <code>animation-delay</code> to sequence two animations, then changing one animation's duration later without updating the other's delay to match — the classic drift this chapter's first Exercise reproduces deliberately.</li>
+        <li>Relying solely on <code>begin="id.end"</code> for chained SMIL timing with no JS fallback — it's valid, standard syntax, but some engines (Chromium, as of this writing) don't reliably resolve syncbase-dependent timing when it's the only such chained animation active on a page; this chapter's SMIL panel pairs the declarative reference with a <code>.beginElement()</code> call in JS for that reason.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        All three panels animate the same properties (a paint-only draw
+        phase, then a composite-only rotation) regardless of which system
+        drives them — SMIL, CSS, and JS all reach the same rendering cost
+        for identical property changes. The real cost difference between
+        the three systems here is developer/maintenance cost (sequencing
+        fragility, code volume), not render performance.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        All three shapes are purely decorative (<code>aria-hidden="true"</code>)
+        demonstrations of the technique, not functional content — no
+        keyboard equivalent is needed for any of them. The JS panel's
+        Pause/Resume buttons are real, keyboard-operable
+        <code>&lt;button&gt;</code> elements; their <code>disabled</code>
+        state (only one of the pair is ever actionable at a time) is
+        reflected both visually and to assistive tech via the native
+        <code>disabled</code> attribute, not a custom ARIA state.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        All three panels run identically regardless of input device — none
+        depend on hover or pointer position. The JS panel's Pause/Resume
+        buttons work via tap exactly as they do via click.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>SMIL <code>begin="id.end"</code> syntax</td><td>4+</td><td>4+</td><td>3.1+</td><td>Universally supported; part of core SMIL timing since SVG 1.1.</td></tr>
+          <tr><td>CSS <code>@keyframes</code> with <code>animation-delay</code></td><td>43+</td><td>16+</td><td>9+</td><td>Universally supported.</td></tr>
+          <tr><td><code>requestAnimationFrame</code></td><td>24+</td><td>23+</td><td>6.1+</td><td>Universally supported.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="smil-css-js-comparison.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>
