@@ -24,6 +24,11 @@ const CHAPTERS = [
   { href: 'docs/mouse/tilt-cards.html', title: 'Tilt Cards', category: 'Mouse' },
   { href: 'docs/mouse/ripple-spotlight.html', title: 'Ripple & Spotlight Effects', category: 'Mouse' },
   { href: 'docs/mouse/hover-distortion.html', title: 'Hover Reveal & Image Distortion', category: 'Mouse' },
+  { href: 'docs/svg/path-drawing.html', title: 'Path Drawing', category: 'SVG' },
+  { href: 'docs/svg/shape-morphing.html', title: 'Shape Morphing', category: 'SVG' },
+  { href: 'docs/svg/animated-icons.html', title: 'Animated Icons', category: 'SVG' },
+  { href: 'docs/svg/svg-filters.html', title: 'SVG Filters & Effects', category: 'SVG' },
+  { href: 'docs/svg/smil-css-js-comparison.html', title: 'SMIL vs CSS vs JS Animation', category: 'SVG' },
 ];
 
 class SiteHeader extends HTMLElement {
