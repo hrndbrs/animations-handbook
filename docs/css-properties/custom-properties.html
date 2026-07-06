@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CSS Custom Properties &amp; @property — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="custom-properties.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/css-properties/custom-properties.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>CSS Custom Properties &amp; @property</h1>
+    <p>Why animating a CSS variable sometimes does nothing — and the at-rule that fixes it.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        A plain CSS custom property (<code>--my-value: ...</code>) has no
+        declared type — the browser treats its value as an opaque token
+        string with type <code>*</code> (the CSS-wide "any" type). This
+        means the browser has no idea <em>how</em> to compute an
+        in-between value when the property changes, so it cannot animate
+        it: the value snaps directly from old to new with no interpolation,
+        even inside a <code>transition</code>.
+      </p>
+      <p>
+        <code>@property</code> exists to fix exactly this: it lets you
+        register a custom property with a declared <code>syntax</code>
+        (e.g. <code>'&lt;color&gt;'</code>, <code>'&lt;length&gt;'</code>,
+        <code>'&lt;number&gt;'</code>), an inheritance behavior, and an
+        initial value. Once registered, the browser knows the property's
+        type and can interpolate it exactly like a built-in property —
+        which is what makes it possible to smoothly animate a custom
+        property's value directly.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        Without <code>@property</code>, a custom property is stored and
+        substituted at compute-time purely as text — <code>var()</code>
+        performs what is effectively a textual substitution into the
+        property that references it. There's no type information carried
+        along, so the animation engine (which needs to know "this is a
+        color, interpolate its RGB channels" or "this is a length,
+        interpolate the number") has nothing to work with.
+      </p>
+      <p>
+        <code>@property</code> moves the custom property into the same
+        typed-value system built-in CSS properties already use, which is
+        also what enables browsers to validate its value (an invalid value
+        for the declared <code>syntax</code> falls back to
+        <code>initial-value</code> instead of silently being accepted as an
+        opaque string).
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — register a typed custom property for color:</p>
+      <pre><code class="language-css">@property --swatch-color {
+  syntax: '&lt;color&gt;';
+  inherits: false;
+  initial-value: #4f46e5;
+}</code></pre>
+      <p>Step 2 — the typed swatch transitions the custom property itself directly, and its background reads that property via <code>var()</code>:</p>
+      <pre><code class="language-css">.custom-properties-demo__swatch--typed {
+  background: var(--swatch-color, #4f46e5);
+  transition: --swatch-color 0.6s ease;
+}
+
+.custom-properties-demo__toggle[aria-pressed="true"] ~ .custom-properties-demo__row .custom-properties-demo__swatch--typed {
+  --swatch-color: #16a34a;
+}</code></pre>
+      <p>Step 3 — the untyped swatch looks almost identical, but its custom property is never registered with <code>@property</code>, so its <code>transition: --swatch-color-untyped 0.6s ease</code> declaration has no interpolation effect — the color still changes, but instantly rather than smoothly:</p>
+      <pre><code class="language-css">.custom-properties-demo__swatch--untyped {
+  --swatch-color-untyped: #4f46e5;
+  background: var(--swatch-color-untyped);
+  transition: --swatch-color-untyped 0.6s ease;
+}</code></pre>
+      <p>Step 4 — since not every browser supports <code>@property</code> yet, feature-detect it via its companion JS API, <code>CSS.registerProperty</code>, and hide the typed comparison (showing a note instead) if unsupported:</p>
+      <pre><code class="language-javascript">const supportsAtProperty = typeof CSS !== 'undefined' && typeof CSS.registerProperty === 'function';
+
+if (!supportsAtProperty) {
+  document.querySelector('.custom-properties-demo').classList.add('no-at-property-support');
+  document.getElementById('at-property-unsupported-note').hidden = false;
+}</code></pre>
+      <p>Step 5 — as numeric proof the two swatches actually behave differently, sample both elements' computed background color across a few animation frames after each toggle:</p>
+      <pre><code class="language-javascript">function sampleColors() {
+  const samples = [];
+  let frame = 0;
+  function tick() {
+    const untypedColor = getComputedStyle(untypedSwatch).backgroundColor;
+    const typedColor = getComputedStyle(typedSwatch).backgroundColor;
+    samples.push(`frame ${frame}: untyped=${untypedColor}  typed=${typedColor}`);
+    frame += 1;
+    if (frame < 5) {
+      requestAnimationFrame(tick);
+    } else {
+      output.textContent = samples.join('\n');
+    }
+  }
+  requestAnimationFrame(tick);
+}</code></pre>
+      <p>
+        Reading the sampled output after clicking the toggle: the untyped
+        swatch's color reaches its final value on frame 0 (no intermediate
+        values), while the typed swatch's color visibly passes through
+        intermediate RGB values across the sampled frames.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo custom-properties-demo">
+        <button type="button" class="custom-properties-demo__toggle" id="color-toggle" aria-pressed="false">Toggle color</button>
+        <div class="custom-properties-demo__row">
+          <div class="custom-properties-demo__swatch custom-properties-demo__swatch--untyped" id="untyped-swatch">Untyped --color</div>
+        </div>
+        <div class="custom-properties-demo__row custom-properties-demo__row--typed">
+          <div class="custom-properties-demo__swatch custom-properties-demo__swatch--typed" id="typed-swatch">Typed --color (@property)</div>
+        </div>
+        <p class="custom-properties-demo__unsupported-note" id="at-property-unsupported-note" hidden>
+          Your browser doesn't support <code>@property</code>, so the typed comparison above is hidden — you'd only see the untyped swatch snap instantly between colors with no transition.
+        </p>
+        <p class="custom-properties-demo__sample-output" id="color-sample-output"></p>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Change <code>syntax: '&lt;color&gt;'</code> to <code>syntax: '&lt;length&gt;'</code> and repurpose <code>--swatch-color</code> to animate a <code>width</code> or <code>border-radius</code> value instead of a color.</li>
+        <li>Remove the <code>inherits: false</code> line and add a child element inside the typed swatch that also reads <code>var(--swatch-color)</code>, to see the registered property inherit.</li>
+        <li>Try setting an invalid value (e.g. <code>--swatch-color: not-a-color;</code>) in DevTools and confirm it falls back to <code>initial-value</code> instead of being silently accepted.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Expecting <code>transition: --my-color 0.3s;</code> to animate a plain custom property — without <code>@property</code>'s <code>syntax</code> declaration, the browser has no type information and cannot interpolate it.</li>
+        <li>Registering <code>@property</code> but forgetting <code>initial-value</code> — it's required; omitting it makes the whole <code>@property</code> rule invalid and the property behaves as if unregistered.</li>
+        <li>Assuming every browser supports <code>@property</code> without a fallback check — it's a relatively recent addition (Baseline widely-available only since 2024) and older browser versions still in use will silently ignore the rule.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        Interpolating a typed custom property costs about the same as
+        interpolating any built-in property of the same type (a
+        <code>&lt;color&gt;</code>-typed custom property interpolates like
+        any other color) — <code>@property</code> doesn't introduce
+        additional runtime cost beyond making the interpolation possible at
+        all.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        The toggle is a real <code>&lt;button&gt;</code> with
+        <code>aria-pressed</code>. Reduced motion is handled by the
+        sitewide rule in <code>shared/doc-page.css</code> — no local
+        override needed. The unsupported-browser fallback note is a real
+        (non-<code>display: none</code>-only-visually) text element, so
+        screen reader users on unsupported browsers still get an
+        explanation rather than a silently missing second swatch.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        The toggle is click/tap-driven. <code>@property</code> support on
+        mobile Safari and Chrome tracks their desktop counterparts'
+        versions, so the same feature-detection fallback covers both.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>CSS custom properties (untyped)</td><td>49+</td><td>31+</td><td>9.1+</td><td>Universally supported.</td></tr>
+          <tr><td><code>@property</code></td><td>85+</td><td>128+</td><td>16.4+</td><td>Baseline widely available since 2024 — this chapter's demo feature-detects and degrades gracefully on older versions.</td></tr>
+          <tr><td><code>CSS.registerProperty</code> (JS API)</td><td>85+</td><td>Not supported (Firefox supports the <code>@property</code> at-rule but not the JS API)</td><td>16.4+</td><td>Used here only as a feature-detection proxy — see note below.</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Note: Firefox supports the <code>@property</code> at-rule but, as of
+        this writing, not the <code>CSS.registerProperty</code> JS method
+        used for feature detection in this chapter's script — meaning
+        Firefox users may see the fallback note even though <code>@property</code>
+        itself works. This is called out explicitly rather than silently
+        left as a known imprecision, since it's a real limit of using this
+        particular detection method.
+      </p>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="custom-properties.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

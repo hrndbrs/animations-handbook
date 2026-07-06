@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shadows &amp; Gradients — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="shadows-gradients.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/css-properties/shadows-gradients.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Shadows &amp; Gradients</h1>
+    <p>Depth cues and moving color — one via <code>transition</code>, one via <code>@keyframes</code>.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        <code>box-shadow</code> and <code>text-shadow</code> both accept
+        offset, blur radius, spread (box-shadow only), and color, and both
+        can be transitioned smoothly like any other animatable property.
+        They exist as separate properties (rather than one shadow property
+        for everything) because a box's shadow and its text's shadow are
+        visually and semantically distinct effects that are frequently
+        wanted independently of each other.
+      </p>
+      <p>
+        Gradients (<code>linear-gradient()</code>, <code>radial-gradient()</code>)
+        aren't a property themselves — they're values usable anywhere an
+        image is accepted, most commonly <code>background</code>. Animating
+        a gradient's motion is done via <code>background-position</code>
+        (shifting where the gradient image is anchored) combined with
+        <code>background-size</code> larger than 100%, so there's room for
+        the anchor point to travel.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        <code>box-shadow</code> is a paint-level effect, not composite-only
+        — the browser must actually rasterize the shadow's blurred edge,
+        which is more expensive than a pure transform/opacity change,
+        though modern browsers cache and reuse this rendering efficiently
+        for shadows that aren't changing shape every frame.
+      </p>
+      <p>
+        This chapter's gradient bar uses CSS <code>animation</code> (via
+        <code>@keyframes</code>) rather than <code>transition</code>.
+        The difference: a <code>transition</code> only runs in response to
+        a property value actually changing (e.g. a class toggle), while an
+        <code>animation</code> can run indefinitely on its own once applied,
+        driven by the keyframe percentages you define rather than a before/
+        after state pair. This is why the gradient bar needs no JS at all —
+        <code>animation-iteration-count: infinite</code> keeps it running
+        forever without any state to toggle.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — the shadow card starts with a subtle resting shadow, no text-shadow:</p>
+      <pre><code class="language-css">.shadow-demo__card {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 0 0 transparent;
+  transition: box-shadow 0.4s ease, transform 0.4s ease, text-shadow 0.4s ease;
+}</code></pre>
+      <p>Step 2 — the pressed state lifts the card (via <code>transform: translateY()</code>, reusing Chapter 1's technique) and deepens both shadows:</p>
+      <pre><code class="language-css">.shadow-demo__card[aria-pressed="true"] {
+  box-shadow: 0 20px 40px rgba(79, 70, 229, 0.45);
+  transform: translateY(-6px);
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.8);
+}</code></pre>
+      <pre><code class="language-javascript">const toggle = document.getElementById('shadow-toggle');
+
+toggle.addEventListener('click', () => {
+  const isPressed = toggle.getAttribute('aria-pressed') === 'true';
+  toggle.setAttribute('aria-pressed', String(!isPressed));
+});</code></pre>
+      <p>Step 3 — the gradient bar: a 3-stop gradient stretched to 200% width, so half of it is always off to one side, ready to scroll into view:</p>
+      <pre><code class="language-css">.gradient-demo__bar {
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-2), var(--color-accent));
+  background-size: 200% 100%;
+  animation: gradient-shift 4s linear infinite;
+}
+
+@keyframes gradient-shift {
+  from { background-position: 0% 50%; }
+  to { background-position: 200% 50%; }
+}</code></pre>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo shadow-demo">
+        <button type="button" class="shadow-demo__card" id="shadow-toggle" aria-pressed="false">Click me</button>
+      </div>
+      <div class="demo gradient-demo">
+        <div class="gradient-demo__bar" role="img" aria-label="Continuously moving gradient bar, decorative"></div>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Change the gradient bar's <code>animation-timing-function</code> from <code>linear</code> to <code>ease-in-out</code> and observe how the constant-speed scroll becomes a back-and-forth pulse in perceived speed (even though it's still moving one direction).</li>
+        <li>Add a colored <code>box-shadow</code> that matches the gradient's accent color, animated with the same <code>@keyframes</code> rule, to combine both techniques.</li>
+        <li>Reduce <code>background-size</code> from <code>200% 100%</code> to <code>150% 100%</code> and observe how the gradient's travel distance (and therefore its perceived speed at the same duration) changes.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Using <code>transition</code> for an effect that should loop forever — <code>transition</code> only ever runs once per state change; continuous motion needs <code>animation</code> with <code>animation-iteration-count: infinite</code>.</li>
+        <li>Forgetting <code>background-size</code> larger than 100% when animating <code>background-position</code> on a gradient — without extra room, there's nothing for the position to travel through.</li>
+        <li>Stacking many large-blur <code>box-shadow</code>s on frequently-animated elements — each shadow layer adds paint cost; prefer one well-tuned shadow over several redundant ones.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        <code>box-shadow</code>/<code>text-shadow</code> transitions are
+        paint-level, not composite-only, so keep blur radii reasonable on
+        elements that animate frequently. The gradient bar's
+        <code>background-position</code> animation is comparatively cheap
+        since it's a single element with no blur.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        The shadow card is a real <code>&lt;button&gt;</code> with
+        <code>aria-pressed</code>. The gradient bar is marked
+        <code>role="img"</code> with a descriptive <code>aria-label</code>
+        noting it's decorative, since it conveys no information assistive
+        technology needs to read as text. Reduced motion for both is
+        handled by the sitewide rule in <code>shared/doc-page.css</code> —
+        for the infinite gradient animation specifically, the global rule's
+        <code>animation-iteration-count: 1 !important</code> stops it from
+        looping continuously, and the near-zero duration keeps that single
+        iteration effectively instant.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        The shadow card is click/tap-driven. The gradient bar requires no
+        interaction at all, so it behaves identically on any device;
+        keeping it to a single non-blurred gradient layer keeps its cost low
+        on lower-powered mobile GPUs.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>box-shadow</code></td><td>10+</td><td>4+</td><td>5.1+</td><td>Universally supported.</td></tr>
+          <tr><td><code>text-shadow</code></td><td>2+</td><td>3.5+</td><td>1.1+</td><td>Universally supported.</td></tr>
+          <tr><td><code>linear-gradient()</code></td><td>26+</td><td>16+</td><td>7+</td><td>Universally supported (unprefixed).</td></tr>
+          <tr><td>CSS <code>@keyframes</code> animation</td><td>43+</td><td>16+</td><td>9+</td><td>Universally supported.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="shadows-gradients.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+/* docs/css-properties/shadows-gradients.css
+   Styles for two demos: (1) a click-toggled box-shadow + text-shadow card,
+   (2) a continuously animating background-position gradient bar, driven by
+   @keyframes rather than a transition (no toggle needed — it just runs).
+   No local reduced-motion rule: the global rule in shared/doc-page.css
+   already reduces this animation's duration/iteration-count. */
+
+.shadow-demo {
+  display: flex;
+  justify-content: center;
+  padding: 1rem 0;
+}
+
+.shadow-demo__card {
+  width: 200px;
+  height: 120px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 0 0 transparent;
+  transition: box-shadow 0.4s ease, transform 0.4s ease, text-shadow 0.4s ease;
+}
+
+.shadow-demo__card[aria-pressed="true"] {
+  box-shadow: 0 20px 40px rgba(79, 70, 229, 0.45);
+  transform: translateY(-6px);
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.8);
+}
+
+.gradient-demo {
+  padding: 1rem 0;
+}
+
+.gradient-demo__bar {
+  height: 60px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-2), var(--color-accent));
+  background-size: 200% 100%;
+  animation: gradient-shift 4s linear infinite;
+}
+
+@keyframes gradient-shift {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 200% 50%;
+  }
+}

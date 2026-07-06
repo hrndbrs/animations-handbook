@@ -1,0 +1,76 @@
+/* docs/css-properties/custom-properties.css
+   Styles for the untyped-vs-typed custom property color comparison.
+   --swatch-color is registered via @property with syntax: '<color>', which
+   makes it smoothly interpolatable. --swatch-color-untyped is a plain,
+   unregistered custom property, which is NOT interpolatable — transitioning
+   it (or a value derived from it) snaps instantly instead of animating.
+   This contrast is the entire point of the demo. */
+
+@property --swatch-color {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: #4f46e5;
+}
+
+.custom-properties-demo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.custom-properties-demo__toggle {
+  align-self: flex-start;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.custom-properties-demo__row {
+  margin: 0;
+}
+
+.custom-properties-demo__swatch {
+  padding: 1rem;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: 600;
+  text-align: center;
+}
+
+.custom-properties-demo__swatch--untyped {
+  --swatch-color-untyped: #4f46e5;
+  background: var(--swatch-color-untyped);
+  transition: --swatch-color-untyped 0.6s ease;
+}
+
+.custom-properties-demo__toggle[aria-pressed="true"] ~ .custom-properties-demo__row .custom-properties-demo__swatch--untyped {
+  --swatch-color-untyped: #16a34a;
+}
+
+.custom-properties-demo__swatch--typed {
+  background: var(--swatch-color, #4f46e5);
+  transition: --swatch-color 0.6s ease;
+}
+
+.custom-properties-demo__toggle[aria-pressed="true"] ~ .custom-properties-demo__row .custom-properties-demo__swatch--typed {
+  --swatch-color: #16a34a;
+}
+
+.custom-properties-demo__sample-output {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.custom-properties-demo__unsupported-note {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.no-at-property-support .custom-properties-demo__row--typed {
+  display: none;
+}

@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Transform Variants — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="transform-variants.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/css-properties/transform-variants.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Transform Variants</h1>
+    <p>Chapter 1 covered one transform (<code>rotateY</code>). This chapter covers the rest of the family.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        <code>transform</code> accepts several distinct function types, each
+        moving/reshaping an element differently: <code>translate()</code>
+        shifts position, <code>rotate()</code> spins around a point,
+        <code>scale()</code> resizes, and <code>skew()</code> shears the
+        element's angles. All of them share the same performance
+        characteristic covered in Chapter 1: none affect layout, so all can
+        run on the compositor.
+      </p>
+      <p>
+        <code>transform-origin</code> sets the point functions like
+        <code>rotate()</code> and <code>scale()</code> pivot around —
+        default is the element's center. <code>perspective</code>, applied
+        to a parent, gives 3D transforms (<code>rotate3d()</code>,
+        <code>translate3d()</code>) a vanishing point to project against,
+        which is what makes a 3D rotation look like it has depth instead of
+        just flattening.
+      </p>
+      <p>
+        Multiple transform functions can be combined in one
+        <code>transform</code> value, applied left to right — the order
+        matters, since each function transforms the coordinate system the
+        next one operates in (e.g. <code>translateX(50px) rotate(45deg)</code>
+        produces a different result than <code>rotate(45deg) translateX(50px)</code>,
+        because the second example's translation happens along the
+        already-rotated axis).
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        Every function in a <code>transform</code> value is ultimately
+        combined into a single transformation matrix before the browser
+        applies it. Because the whole combined effect is one matrix
+        operation on the compositor, combining four transform functions
+        costs no more, per frame, than applying just one — the compositor
+        doesn't re-run four separate passes.
+      </p>
+      <p>
+        <code>perspective</code> works by altering how the browser projects
+        3D coordinates onto the 2D screen: a smaller <code>perspective</code>
+        value creates a more dramatic, closer vanishing point (elements
+        further along the z-axis shrink faster), while a larger value
+        approaches a flat, undistorted projection.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — the box's transform is composed from four CSS custom properties, each with a fallback default:</p>
+      <pre><code class="language-css">.transform-demo__box {
+  transform: translateX(var(--tx, 0px)) rotate(var(--rot, 0deg)) scale(var(--scl, 1)) skew(var(--skx, 0deg));
+  transition: transform 0.15s ease-out;
+}</code></pre>
+      <p>Step 2 — the parent stage gets <code>perspective</code>, so any future 3D variant added to the box would render with depth:</p>
+      <pre><code class="language-css">.transform-demo__stage {
+  perspective: 600px;
+}</code></pre>
+      <p>Step 3 — four native range inputs, one per transform function:</p>
+      <pre><code class="language-markup">&lt;input type="range" id="translate-x" min="-80" max="80" value="0"&gt;
+&lt;input type="range" id="rotate" min="-180" max="180" value="0"&gt;
+&lt;input type="range" id="scale" min="50" max="150" value="100"&gt;
+&lt;input type="range" id="skew" min="-45" max="45" value="0"&gt;</code></pre>
+      <p>Step 4 — each slider's <code>input</code> event writes its value into the matching CSS custom property; the browser recomputes the combined <code>transform</code> automatically since it references those properties via <code>var()</code>:</p>
+      <pre><code class="language-javascript">function update() {
+  box.style.setProperty('--tx', `${translateXInput.value}px`);
+  box.style.setProperty('--rot', `${rotateInput.value}deg`);
+  box.style.setProperty('--scl', String(Number(scaleInput.value) / 100));
+  box.style.setProperty('--skx', `${skewInput.value}deg`);
+}
+
+[translateXInput, rotateInput, scaleInput, skewInput].forEach((input) => {
+  input.addEventListener('input', update, { passive: true });
+});</code></pre>
+      <p>
+        Note this script never writes to <code>box.style.transform</code>
+        directly — it only ever sets the four custom properties, and CSS
+        (Step 1) is what actually composes them into a transform.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo transform-demo">
+        <div class="transform-demo__stage">
+          <div class="transform-demo__box" id="transform-box">Box</div>
+        </div>
+        <div class="transform-demo__controls">
+          <label>Translate X <input type="range" id="translate-x" min="-80" max="80" value="0"></label>
+          <label>Rotate <input type="range" id="rotate" min="-180" max="180" value="0"></label>
+          <label>Scale <input type="range" id="scale" min="50" max="150" value="100"></label>
+          <label>Skew <input type="range" id="skew" min="-45" max="45" value="0"></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Reorder the functions in the <code>transform</code> declaration (e.g. put <code>scale()</code> first) and observe how combining rotate + translate in a different order changes the result.</li>
+        <li>Add a fifth slider controlling <code>transform-origin</code>'s horizontal position and observe how it changes where <code>rotate()</code>/<code>scale()</code> pivot from.</li>
+        <li>Replace <code>rotate()</code> with <code>rotate3d(1, 1, 0, var(--rot))</code> and increase the stage's <code>perspective</code> value to compare 2D vs 3D rotation.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Assuming transform function order doesn't matter — <code>translateX() rotate()</code> and <code>rotate() translateX()</code> produce different results because each function transforms the coordinate space the next one operates in.</li>
+        <li>Setting <code>perspective</code> on the same element being rotated in 3D, instead of on its parent — the element needs a parent with perspective to have a vanishing point to project against.</li>
+        <li>Writing directly to <code>element.style.transform</code> from JS on every input event instead of updating custom properties — works, but couples the JS to the exact transform string, whereas the custom-property approach (this chapter's pattern) lets the CSS declare the full transform independently and JS just supplies values.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        Updating four CSS custom properties on every slider <code>input</code>
+        event is cheap: the browser recomputes one combined transform matrix
+        per frame, and since the box is composite-only (no layout-affecting
+        properties involved), dragging any slider stays smooth even on
+        modest hardware.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        Native <code>&lt;input type="range"&gt;</code> elements are
+        keyboard-operable by default (arrow keys adjust the value once
+        focused) and expose their current value to assistive technology
+        without any extra ARIA. Reduced motion is handled by the sitewide
+        rule in <code>shared/doc-page.css</code> — no local override needed
+        here either, though this demo's <code>transition: transform 0.15s</code>
+        is already short enough that the difference is minor compared to
+        Chapter 1's 0.6s flip.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        Range inputs work with touch out of the box (drag the thumb). On
+        very small viewports, the four labeled sliders stack in a single
+        column via <code>flex-direction: column</code>, keeping each
+        slider's touch target full-width and easy to grab.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>transform</code> (translate/rotate/scale/skew)</td><td>36+</td><td>16+</td><td>9+</td><td>Universally supported.</td></tr>
+          <tr><td><code>perspective</code></td><td>36+</td><td>16+</td><td>9+</td><td>Universally supported.</td></tr>
+          <tr><td>CSS custom properties in <code>transform</code> via <code>var()</code></td><td>49+</td><td>31+</td><td>9.1+</td><td>Universally supported in evergreen browsers.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="transform-variants.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

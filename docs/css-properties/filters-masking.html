@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Filters &amp; Masking — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="filters-masking.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/css-properties/filters-masking.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Filters &amp; Masking</h1>
+    <p>Pixel-level effects — blurring, desaturating, clipping, and masking — all animatable with CSS alone.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        <code>filter</code> applies a pixel-processing effect (blur,
+        grayscale, brightness, and more) to an element and everything
+        painted inside it, as a single visual operation — similar to
+        <code>opacity</code> in that it treats the subtree as one unit.
+        <code>backdrop-filter</code> is the inverse: instead of filtering
+        the element's own content, it filters whatever is visually
+        <em>behind</em> the element, which is what produces the "frosted
+        glass" look.
+      </p>
+      <p>
+        <code>clip-path</code> and <code>mask</code> both hide parts of an
+        element, but differently: <code>clip-path</code> defines a hard-edged
+        geometric region (polygon, circle, etc.) — content outside it is
+        simply not rendered, with no partial transparency. <code>mask</code>
+        instead uses another image or gradient as an opacity map, so it can
+        produce soft, gradual edges (as in this chapter's
+        radial-gradient-masked panel) that <code>clip-path</code> cannot.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        Unlike <code>opacity</code> and <code>transform</code>,
+        <code>filter</code> is not composite-only — applying a blur or
+        color-matrix effect requires the GPU to actually process the
+        element's pixels (a paint-level operation), even though the result
+        can still be composited efficiently afterward. This makes
+        <code>filter</code> more expensive to animate than
+        <code>opacity</code>/<code>transform</code>, especially at large
+        blur radii or over large element areas, since the processing cost
+        scales with the number of pixels being filtered.
+      </p>
+      <p>
+        <code>backdrop-filter</code> is even more expensive: the browser
+        must re-sample whatever is currently rendered behind the element on
+        every frame the backdrop content changes, rather than filtering a
+        single static layer once.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — a button styled as a card, filter and clip-path both start at their "neutral" values:</p>
+      <pre><code class="language-css">.filter-demo__box {
+  filter: grayscale(0) blur(0px);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  transition: filter 0.5s ease, clip-path 0.5s ease;
+}</code></pre>
+      <p>Step 2 — the pressed state applies both effects together:</p>
+      <pre><code class="language-css">.filter-demo__box[aria-pressed="true"] {
+  filter: grayscale(1) blur(2px);
+  clip-path: polygon(10% 10%, 90% 0, 100% 90%, 0 100%);
+}</code></pre>
+      <pre><code class="language-javascript">const toggle = document.getElementById('filter-toggle');
+
+toggle.addEventListener('click', () => {
+  const isPressed = toggle.getAttribute('aria-pressed') === 'true';
+  toggle.setAttribute('aria-pressed', String(!isPressed));
+});</code></pre>
+      <p>Step 3 — the backdrop-filter + mask panel needs no JS at all; it's a static illustration over a patterned background:</p>
+      <pre><code class="language-css">.backdrop-demo__panel {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  mask-image: radial-gradient(circle, black 60%, transparent 100%);
+}</code></pre>
+      <p>
+        The <code>-webkit-backdrop-filter</code> prefix is still required
+        for Safari support even in recent versions — see the compatibility
+        table below.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo filter-demo">
+        <button type="button" class="filter-demo__box" id="filter-toggle" aria-pressed="false">Click me</button>
+      </div>
+      <div class="demo backdrop-demo">
+        <div class="backdrop-demo__background">
+          <div class="backdrop-demo__panel">Frosted panel using backdrop-filter + a radial-gradient mask for soft edges</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Change the pressed-state <code>clip-path</code> polygon to a different shape (e.g. a triangle) and observe the hard edge <code>clip-path</code> always produces, contrasted with the soft <code>mask</code> edge below it.</li>
+        <li>Add <code>brightness()</code> or <code>saturate()</code> to the <code>filter</code> declaration alongside <code>grayscale()</code> and <code>blur()</code> — filters can be chained, space-separated.</li>
+        <li>Remove the <code>-webkit-backdrop-filter</code> prefix temporarily and check DevTools' rendering in a WebKit-based browser to see the frosted effect disappear.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Forgetting the <code>-webkit-backdrop-filter</code> prefix — Safari requires it even in current versions, unlike most other modern CSS features.</li>
+        <li>Animating large-radius <code>blur()</code> filters over large areas on low-powered devices without testing — filter cost scales with pixel area and blur radius, unlike compositor-only properties.</li>
+        <li>Reaching for <code>clip-path</code> when a soft/gradual edge is needed — it only produces hard edges; <code>mask</code> with a gradient is the correct tool for feathered edges.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        Both <code>filter</code> and <code>backdrop-filter</code> require
+        actual pixel processing, not just compositing — keep blur radii and
+        affected element sizes modest, especially for <code>backdrop-filter</code>,
+        which re-samples its backdrop continuously if anything behind it is
+        also animating.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        The filter toggle is a real <code>&lt;button&gt;</code> with
+        <code>aria-pressed</code>. Reduced motion is handled by the sitewide
+        rule in <code>shared/doc-page.css</code> — no local override in this
+        chapter. The backdrop-filter panel is decorative and static (no
+        motion), so reduced-motion doesn't apply to it.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        The filter toggle is click/tap-driven. <code>backdrop-filter</code>
+        is well supported on mobile Safari and Chrome, though heavier blur
+        radii can noticeably affect scroll performance on older devices if
+        the filtered element is large or frequently repainted.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>filter</code></td><td>53+</td><td>35+</td><td>9.1+</td><td>Universally supported in evergreen browsers.</td></tr>
+          <tr><td><code>clip-path</code></td><td>55+</td><td>54+</td><td>9.1+</td><td>Universally supported.</td></tr>
+          <tr><td><code>backdrop-filter</code></td><td>76+</td><td>103+</td><td>9+ (prefixed)</td><td>Requires <code>-webkit-backdrop-filter</code> in Safari.</td></tr>
+          <tr><td><code>mask-image</code></td><td>120+ (unprefixed)</td><td>53+</td><td>15.4+ (unprefixed)</td><td>Older Chrome/Safari versions require <code>-webkit-mask-image</code>.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="filters-masking.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

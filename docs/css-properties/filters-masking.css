@@ -1,0 +1,57 @@
+/* docs/css-properties/filters-masking.css
+   Styles for two demos: (1) a click-toggled filter+clip-path box, (2) a
+   hover-only backdrop-filter+mask panel (pure CSS, no JS needed since it's
+   a supplementary illustration rather than the primary interactive demo). */
+
+.filter-demo {
+  display: flex;
+  justify-content: center;
+  padding: 1rem 0;
+}
+
+.filter-demo__box {
+  width: 220px;
+  height: 140px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-2));
+  color: #fff;
+  font-weight: 600;
+  filter: grayscale(0) blur(0px);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  transition: filter 0.5s ease, clip-path 0.5s ease;
+}
+
+.filter-demo__box[aria-pressed="true"] {
+  filter: grayscale(1) blur(2px);
+  clip-path: polygon(10% 10%, 90% 0, 100% 90%, 0 100%);
+}
+
+.backdrop-demo {
+  padding: 1rem 0;
+}
+
+.backdrop-demo__background {
+  position: relative;
+  height: 160px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: repeating-linear-gradient(45deg, var(--color-accent) 0 20px, var(--color-accent-2) 20px 40px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.backdrop-demo__panel {
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 0.85rem;
+  text-align: center;
+  max-width: 240px;
+  mask-image: radial-gradient(circle, black 60%, transparent 100%);
+}

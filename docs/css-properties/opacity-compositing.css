@@ -1,0 +1,58 @@
+/* docs/css-properties/opacity-compositing.css
+   Styles for the opacity crossfade demo. Two layers are stacked via
+   position: absolute and crossfaded by transitioning opacity — a pure CSS
+   transition; the JS only toggles a class. No local reduced-motion rule
+   here: the global rule in shared/doc-page.css already covers it. */
+
+.opacity-demo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.opacity-demo__stack {
+  position: relative;
+  width: 220px;
+  height: 120px;
+}
+
+.opacity-demo__layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-weight: 600;
+  color: #fff;
+  transition: opacity 0.6s ease;
+}
+
+.opacity-demo__layer--a {
+  background: var(--color-accent);
+  opacity: 1;
+}
+
+.opacity-demo__layer--b {
+  background: var(--color-accent-2);
+  opacity: 0;
+}
+
+.opacity-demo__stack.is-crossfaded .opacity-demo__layer--a {
+  opacity: 0;
+}
+
+.opacity-demo__stack.is-crossfaded .opacity-demo__layer--b {
+  opacity: 1;
+}
+
+.opacity-demo__toggle {
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+}

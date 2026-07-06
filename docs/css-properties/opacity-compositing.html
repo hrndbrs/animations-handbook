@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Opacity &amp; Compositing — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="opacity-compositing.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/css-properties/opacity-compositing.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Opacity &amp; Compositing</h1>
+    <p>The simplest animatable property, and a surprisingly deep rabbit hole into how browsers composite layers.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        <code>opacity</code> controls how transparent an element (and
+        everything painted inside it) is, from <code>0</code> (invisible)
+        to <code>1</code> (fully opaque). Unlike <code>background-color</code>
+        with an alpha channel, <code>opacity</code> applies to the element
+        as a whole — its children, borders, and any nested content all fade
+        together as one unit, rather than each being individually
+        semi-transparent.
+      </p>
+      <p>
+        This exists as a distinct property (rather than requiring every
+        color property to carry its own alpha value) because fading a
+        whole subtree uniformly is an extremely common animation need —
+        crossfades, fade-in reveals, disabled-state dimming — and because,
+        as covered next, it can be animated far more cheaply than
+        semi-transparent colors applied individually to every descendant.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        Any element with <code>opacity</code> less than <code>1</code>
+        creates a new <strong>stacking context</strong>. A stacking context
+        is a self-contained unit for the purposes of paint order — child
+        elements' <code>z-index</code> values are only compared against
+        siblings within the same stacking context, never against elements
+        outside it. This is why an element with low <code>z-index</code>
+        can still visually sit "on top of" a high-<code>z-index</code>
+        element elsewhere in the page: if they belong to different stacking
+        contexts, their <code>z-index</code> values are never compared
+        directly.
+      </p>
+      <p>
+        Like <code>transform</code>, an animating <code>opacity</code> value
+        can be handled purely on the compositor thread: the browser paints
+        the element's content once, then the GPU blends that already-painted
+        layer at whatever opacity the current frame calls for — no
+        repainting of the element's internal pixels on every frame. This is
+        why <code>opacity</code> and <code>transform</code> are the two
+        properties most often recommended for animation: both can skip
+        Layout and Paint entirely once an element is promoted to its own
+        compositor layer.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — two layers stacked on top of each other with absolute positioning:</p>
+      <pre><code class="language-markup">&lt;div class="opacity-demo__stack" id="opacity-stack"&gt;
+  &lt;div class="opacity-demo__layer opacity-demo__layer--a"&gt;Layer A&lt;/div&gt;
+  &lt;div class="opacity-demo__layer opacity-demo__layer--b"&gt;Layer B&lt;/div&gt;
+&lt;/div&gt;</code></pre>
+      <pre><code class="language-css">.opacity-demo__stack {
+  position: relative;
+  width: 220px;
+  height: 120px;
+}
+
+.opacity-demo__layer {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.6s ease;
+}</code></pre>
+      <p>Step 2 — Layer A starts fully opaque, Layer B starts invisible:</p>
+      <pre><code class="language-css">.opacity-demo__layer--a { opacity: 1; }
+.opacity-demo__layer--b { opacity: 0; }</code></pre>
+      <p>Step 3 — a single class, toggled by JS, swaps which layer is visible; CSS transitions both simultaneously, producing the crossfade:</p>
+      <pre><code class="language-css">.opacity-demo__stack.is-crossfaded .opacity-demo__layer--a { opacity: 0; }
+.opacity-demo__stack.is-crossfaded .opacity-demo__layer--b { opacity: 1; }</code></pre>
+      <pre><code class="language-javascript">const toggle = document.getElementById('opacity-toggle');
+const stack = document.getElementById('opacity-stack');
+
+toggle.addEventListener('click', () => {
+  const isPressed = toggle.getAttribute('aria-pressed') === 'true';
+  toggle.setAttribute('aria-pressed', String(!isPressed));
+  stack.classList.toggle('is-crossfaded', !isPressed);
+});</code></pre>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo opacity-demo">
+        <div class="opacity-demo__stack" id="opacity-stack">
+          <div class="opacity-demo__layer opacity-demo__layer--a">Layer A</div>
+          <div class="opacity-demo__layer opacity-demo__layer--b">Layer B</div>
+        </div>
+        <button type="button" class="opacity-demo__toggle" id="opacity-toggle" aria-pressed="false">Crossfade</button>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Add a third layer and crossfade between all three by cycling through a set of classes instead of a single boolean toggle.</li>
+        <li>Open DevTools' Layers panel while the crossfade runs and confirm both layers are promoted to their own compositor layers during the transition.</li>
+        <li>Replace one layer's <code>opacity</code> transition with a <code>visibility</code> transition and observe why it doesn't crossfade smoothly (visibility is not interpolatable — it snaps at the halfway point of its transition duration).</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Assuming a low <code>z-index</code> child always renders behind a high <code>z-index</code> element elsewhere — stacking contexts (created by <code>opacity &lt; 1</code>, among other triggers) reset that comparison scope.</li>
+        <li>Setting <code>opacity: 0</code> to "hide" an element without also removing it from layout flow or interaction — the element is invisible but still occupies space and remains clickable/focusable, unlike <code>display: none</code>.</li>
+        <li>Animating individual descendant colors' alpha channels to fake a whole-subtree fade instead of using one <code>opacity</code> value on the parent — more properties to keep in sync, and loses the compositor-only fast path.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        Both layers in this demo only ever transition <code>opacity</code>,
+        so the crossfade stays composite-only — no layout or repaint of
+        either layer's internal content during the animation, regardless of
+        how much content each layer contains.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        The toggle is a real <code>&lt;button&gt;</code> with
+        <code>aria-pressed</code>, reachable and operable by keyboard.
+        Reduced motion is handled by the sitewide rule in
+        <code>shared/doc-page.css</code> (which shrinks all transition/
+        animation durations to near-zero) — this chapter does not define a
+        local override, since one would be redundant.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        The demo is click/tap-driven, not <code>:hover</code>-dependent, so
+        it behaves identically on touchscreens. <code>opacity</code>
+        transitions are inexpensive even on lower-powered mobile GPUs since
+        they stay compositor-only.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>opacity</code></td><td>1+</td><td>1+</td><td>1.2+</td><td>Universally supported since the earliest CSS3 implementations.</td></tr>
+          <tr><td>Stacking contexts from <code>opacity &lt; 1</code></td><td>1+</td><td>1+</td><td>1.2+</td><td>Part of the CSS2.1/CSS3 stacking model, universally supported.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="opacity-compositing.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>
