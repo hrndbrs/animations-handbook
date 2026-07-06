@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gradient Text &amp; Underline Animation — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="gradient-underline.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/text/gradient-underline.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Gradient Text &amp; Underline Animation</h1>
+    <p>Two decorative text effects, both pure CSS — no JavaScript in this chapter at all.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        <code>background-clip: text</code> clips an element's background
+        (which can be a gradient) to the shape of its text glyphs, instead
+        of its box. Combined with <code>color: transparent</code> (so the
+        actual text color doesn't paint over the clipped background), this
+        produces gradient-colored text using only CSS — the same
+        <code>background-position</code>-driven movement technique from
+        Phase 2's Shadows &amp; Gradients chapter, just clipped to text
+        shape instead of a rectangular box.
+      </p>
+      <p>
+        The animated underline uses a similar background trick: instead of
+        <code>text-decoration</code>, a <code>background-image</code>
+        gradient (here just a solid color) sized to <code>0% 2px</code> and
+        positioned at the bottom acts as the underline; transitioning
+        <code>background-size</code> to <code>100% 2px</code> on hover/focus
+        grows it left-to-right.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        <code>background-clip: text</code> still requires the
+        <code>-webkit-</code> prefix in Safari despite being otherwise
+        standard; both prefixed and unprefixed versions are included here.
+        Since both demos in this chapter only ever animate
+        <code>background-position</code>/<code>background-size</code> (not
+        layout-affecting properties), they stay cheap regardless of text
+        length.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — the gradient text: a background gradient wider than the element, clipped to the text, animated via <code>background-position</code>:</p>
+      <pre><code class="language-css">.gradient-text-demo__heading {
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-2), var(--color-accent));
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-text-shift 3s linear infinite;
+}
+
+@keyframes gradient-text-shift {
+  from { background-position: 0% 50%; }
+  to { background-position: 200% 50%; }
+}</code></pre>
+      <p>Step 2 — the animated underline: a bottom-anchored background gradient, sized to zero width at rest, transitioned to full width on hover/focus:</p>
+      <pre><code class="language-css">.underline-demo__link {
+  background-image: linear-gradient(var(--color-accent), var(--color-accent));
+  background-size: 0% 2px;
+  background-repeat: no-repeat;
+  background-position: left bottom;
+  transition: background-size 0.3s ease;
+}
+
+.underline-demo__link:hover,
+.underline-demo__link:focus-visible {
+  background-size: 100% 2px;
+}</code></pre>
+      <p>
+        Using a background-image underline instead of
+        <code>text-decoration-line: underline</code> is what makes it
+        animatable via <code>background-size</code> — the native
+        <code>text-decoration</code> underline has no equivalent "grow from
+        one side" transition.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo">
+        <h3 class="gradient-text-demo__heading">Moving gradient text</h3>
+      </div>
+      <div class="demo">
+        <p><a class="underline-demo__link" href="#" onclick="return false;">Hover or focus this link</a></p>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Change the gradient text's <code>animation-timing-function</code> from <code>linear</code> to <code>ease-in-out</code> and compare the perceived motion.</li>
+        <li>Change the underline's <code>background-position</code> to <code>right bottom</code> and observe it growing from the opposite side.</li>
+        <li>Add a third color stop to the gradient text's <code>linear-gradient()</code> and observe how it changes the color transition as it scrolls.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Forgetting <code>color: transparent</code> alongside <code>background-clip: text</code> — without it, the solid text color paints on top of the clipped gradient and hides it entirely.</li>
+        <li>Forgetting the <code>-webkit-</code> prefix for <code>background-clip: text</code> — Safari still requires it.</li>
+        <li>Using <code>width</code> instead of <code>background-size</code> to animate the underline's growth — animating <code>width</code> on a pseudo-element/span forces layout on every frame, where <code>background-size</code> stays compositor-friendlier.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        Both effects animate only background properties, not layout-
+        affecting ones, so they remain cheap regardless of how much text is
+        involved.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        Neither demo splits or hides any text — <code>color: transparent</code>
+        only affects paint, not the accessibility tree, so screen readers
+        read the gradient heading normally. The underline link has a
+        visible <code>:focus-visible</code> state matching its hover state,
+        so keyboard users get the same affordance mouse users do. Reduced
+        motion is handled by the sitewide rule in
+        <code>shared/doc-page.css</code>, which stops the gradient text's
+        infinite loop the same way it stops Phase 2's Shadows &amp; Gradients
+        chapter's gradient bar — no local override needed here either.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        The gradient heading needs no interaction at all. The underline
+        link's hover state won't trigger on touch devices without a mouse,
+        but its <code>:focus-visible</code> state still applies when reached
+        via keyboard navigation, and the link remains fully functional via
+        tap regardless of whether the visual underline animation plays.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>background-clip: text</code></td><td>120+ (unprefixed)</td><td>49+</td><td>Requires <code>-webkit-</code> prefix</td><td>Chrome only recently unprefixed it; keep both versions for now.</td></tr>
+          <tr><td><code>background-size</code> transitions</td><td>1+</td><td>4+</td><td>3.1+</td><td>Universally supported.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

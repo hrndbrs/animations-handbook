@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Typing &amp; Scramble Effects — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="typing-scramble.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/text/typing-scramble.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Typing &amp; Scramble Effects</h1>
+    <p>Two ways to reveal text over time: growing it character by character, or resolving it out of randomness.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        A typewriter effect reveals text by progressively growing a
+        substring of the final string — no DOM splitting needed, since the
+        whole thing is one text node whose content changes over time. A
+        scramble effect is the opposite in structure: it needs every
+        character as its own element, since each character independently
+        cycles through random values before settling on its real one at a
+        (usually staggered) time.
+      </p>
+      <p>
+        Both are timed with <code>requestAnimationFrame</code> rather than
+        <code>setInterval</code>, tracking elapsed milliseconds between
+        frames rather than assuming a fixed frame rate — this keeps the
+        reveal speed consistent whether the display refreshes at 60Hz,
+        120Hz, or drops frames under load.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        Repeatedly setting <code>textContent</code> on every animation
+        frame (as the typewriter effect does) is cheap: it's a single text
+        node update, triggering layout only for that node's line box, not a
+        page-wide reflow. The scramble effect's many independent per-frame
+        <code>textContent</code> writes (one per character, each on its own
+        timer) are similarly cheap individually, though a very long
+        scrambled string means many simultaneous rAF callbacks running per
+        frame — still inexpensive at the scale of a sentence, but worth
+        being mindful of at paragraph scale.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — the typewriter loop tracks elapsed time since the last character was revealed, not frame count:</p>
+      <pre><code class="language-javascript">function runTyping() {
+  let charIndex = 0;
+  let lastTime = null;
+
+  function step(timestamp) {
+    if (lastTime === null) lastTime = timestamp;
+    const elapsed = timestamp - lastTime;
+    if (elapsed >= MS_PER_CHAR) {
+      charIndex += 1;
+      lastTime = timestamp;
+      typingTarget.textContent = TYPING_TEXT.slice(0, charIndex);
+    }
+    if (charIndex < TYPING_TEXT.length) {
+      requestAnimationFrame(step);
+    }
+  }
+
+  typingTarget.textContent = '';
+  requestAnimationFrame(step);
+}</code></pre>
+      <p>Step 2 — the blinking caret is pure CSS, driven by a step-end keyframe (an instant on/off flicker, not a smooth fade):</p>
+      <pre><code class="language-css">.typing-demo__caret {
+  animation: typing-caret-blink 1s step-end infinite;
+}
+
+@keyframes typing-caret-blink {
+  50% { opacity: 0; }
+}</code></pre>
+      <p>Step 3 — the scramble effect splits the target into per-character spans, then gives each one its own independent random-then-resolve timer, staggered by index:</p>
+      <pre><code class="language-javascript">import { splitText } from '../../utils/split-text.js';
+
+function runScramble() {
+  const pieces = splitText(scrambleTarget, { by: 'char' });
+  pieces.forEach((piece, index) => {
+    const finalChar = piece.textContent;
+    const resolveAt = 300 + index * 40;
+    let elapsed = 0;
+    let lastTime = null;
+
+    function frame(timestamp) {
+      if (lastTime === null) lastTime = timestamp;
+      elapsed += timestamp - lastTime;
+      lastTime = timestamp;
+      if (elapsed >= resolveAt) {
+        piece.textContent = finalChar;
+        return;
+      }
+      piece.textContent = randomChar();
+      requestAnimationFrame(frame);
+    }
+
+    requestAnimationFrame(frame);
+  });
+}</code></pre>
+      <p>
+        Each character captures its own <code>finalChar</code> before
+        scrambling starts (from <code>splitText</code>'s returned span,
+        whose <code>textContent</code> is still the real character at that
+        point), so it knows what to resolve to once its own timer expires.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo typing-demo">
+        <p class="typing-demo__text"><span id="typing-target"></span><span class="typing-demo__caret" aria-hidden="true"></span></p>
+        <button type="button" class="typing-demo__trigger" id="typing-trigger">Type it</button>
+      </div>
+      <div class="demo scramble-demo">
+        <p class="scramble-demo__text" id="scramble-target">Resolving from noise.</p>
+        <button type="button" class="scramble-demo__trigger" id="scramble-trigger">Scramble &amp; resolve</button>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Change <code>MS_PER_CHAR</code> and observe how it changes the typewriter's perceived speed.</li>
+        <li>Change the scramble's <code>resolveAt</code> formula so characters resolve in reverse order (last character first).</li>
+        <li>Combine both: have the scramble demo's final resolved text then trigger the typewriter effect on a second line.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Using <code>setInterval</code> for the typewriter effect instead of <code>requestAnimationFrame</code> with elapsed-time tracking — runs out of sync with the display's actual repaint and doesn't self-throttle under load.</li>
+        <li>Forgetting to capture each character's final value before scrambling starts — if you read <code>textContent</code> after scrambling has already begun, you'll capture a randomized character instead of the real one.</li>
+        <li>Re-running the typewriter effect without resetting <code>typingTarget.textContent = ''</code> first — leftover text from a prior run stays visible underneath the new reveal.</li>
+        <li>Not guarding against re-entry — clicking the trigger again before the typewriter finishes starts a second concurrent <code>requestAnimationFrame</code> loop that races the first, both writing to the same <code>textContent</code>. Disabling the trigger button for the duration of the run (re-enabling it once the loop completes) prevents this.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        Both effects are cheap at sentence scale: a handful of
+        <code>textContent</code> writes per frame, no layout-affecting
+        properties involved. Scramble effects scale with character count
+        squared in perceived complexity (more characters means more
+        simultaneous independent timers), so keep scrambled strings short
+        for the effect to read clearly rather than as visual noise.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        The typewriter effect updates a single text node's content — screen
+        readers reading it live would hear it change repeatedly as it
+        types, which can be noisy; consider pairing rapidly-updating text
+        like this with <code>aria-live="off"</code> (the default) on the
+        container rather than announcing every intermediate state. The
+        scramble demo's intermediate random characters are marked
+        <code>aria-hidden="true"</code> by <code>split-text.js</code>, and
+        its visually-hidden fallback holds the final resolved text, so
+        screen readers hear the real word directly rather than the
+        scrambling process. Reduced motion is handled by the sitewide rule
+        in <code>shared/doc-page.css</code> — no local override in this
+        chapter, though note that rule only shrinks CSS transition/animation
+        durations; both effects here are pure JS/rAF-driven and are not
+        affected by the CSS reduced-motion rule directly (a further
+        refinement — explicitly checking <code>matchMedia</code> in JS
+        before starting either effect — is a good exercise, left as Exercise
+        1's natural extension).
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        Both triggers are real <code>&lt;button&gt;</code> elements,
+        click/tap-driven. Neither effect is expensive enough to be a
+        concern on lower-powered mobile devices at sentence length.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>requestAnimationFrame</code></td><td>24+</td><td>23+</td><td>6.1+</td><td>Universally supported.</td></tr>
+          <tr><td>CSS <code>step-end</code> timing function</td><td>4+</td><td>4+</td><td>6.1+</td><td>Universally supported.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="typing-scramble.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

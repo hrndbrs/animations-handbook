@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Counter &amp; Number Animation — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="counter-number.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/text/counter-number.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Counter &amp; Number Animation</h1>
+    <p>Counting up isn't just incrementing a number — the easing curve is what makes it feel intentional.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        A naive number counter just increments a value on a timer. A good
+        one applies an easing curve to the count's progress over a fixed
+        duration, the same way any other animated value would use one —
+        <code>utils/easing.js</code>'s <code>easeOutCubic</code> (already
+        built in Phase 1, used there only for a small comparison demo) is a
+        direct fit here: it starts fast and decelerates into the final
+        value, which reads as more deliberate than a linear count.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        This is a plain <code>requestAnimationFrame</code> loop updating
+        <code>textContent</code> every frame — no CSS animation is involved
+        at all, since there's no way to transition a text node's numeric
+        content with CSS alone. <code>font-variant-numeric: tabular-nums</code>
+        is used so each digit occupies a fixed width, preventing the
+        counter's overall width from jittering as digit shapes change.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — track elapsed time against a fixed duration, converting that into a 0-1 progress value:</p>
+      <pre><code class="language-javascript">const startTime = performance.now();
+
+function frame(now) {
+  const elapsed = now - startTime;
+  const t = Math.min(elapsed / DURATION_MS, 1);
+  ...
+}</code></pre>
+      <p>Step 2 — run that progress through <code>easeOutCubic</code> before applying it to the target value, and write the result to the counter's text:</p>
+      <pre><code class="language-javascript">import { easeOutCubic } from '../../utils/easing.js';
+
+function frame(now) {
+  const elapsed = now - startTime;
+  const t = Math.min(elapsed / DURATION_MS, 1);
+  const easedT = easeOutCubic(t);
+  const value = Math.round(easedT * TARGET_VALUE);
+  counterEl.textContent = value.toLocaleString();
+  if (t < 1) {
+    requestAnimationFrame(frame);
+  }
+}
+
+requestAnimationFrame(frame);</code></pre>
+      <p>
+        <code>toLocaleString()</code> adds thousands separators
+        automatically, matching how numbers are normally displayed to
+        users rather than showing a raw digit string.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo counter-demo">
+        <p class="counter-demo__value" id="counter-value">0</p>
+        <button type="button" class="counter-demo__trigger" id="counter-trigger">Count up</button>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Swap <code>easeOutCubic</code> for <code>linear</code> (also exported from <code>utils/easing.js</code>) and compare how the count feels without deceleration.</li>
+        <li>Change <code>TARGET_VALUE</code> to a decimal (e.g. a currency amount) and format it with <code>toLocaleString(undefined, { minimumFractionDigits: 2 })</code> instead.</li>
+        <li>Add a second counter on the page, triggered by the same button, counting to a different target over a different duration.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Incrementing the counter by a fixed step each frame instead of computing the value from elapsed time — ties the animation's total duration to the display's frame rate instead of a fixed, predictable duration.</li>
+        <li>Forgetting <code>Math.min(elapsed / DURATION_MS, 1)</code>'s upper clamp — without it, <code>t</code> could exceed 1 on a slow frame, and most easing functions (including <code>easeOutCubic</code>) aren't designed to produce sensible output outside <code>[0, 1]</code>.</li>
+        <li>Omitting <code>font-variant-numeric: tabular-nums</code> — proportional digit widths make the counter's layout visibly shift as it counts, which reads as janky even though the animation logic itself is correct.</li>
+        <li>Not guarding against re-entry — clicking the trigger again mid-count starts a second concurrent <code>requestAnimationFrame</code> loop racing the first, both writing to the same counter element. Disabling the trigger button for the duration of the run (re-enabling it once <code>t</code> reaches 1) prevents this.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        A single <code>textContent</code> write per frame is inexpensive.
+        The easing function itself (<code>easeOutCubic</code>) is a simple
+        arithmetic expression, not a loop, so evaluating it every frame adds
+        negligible cost.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        The trigger is a real <code>&lt;button&gt;</code>. The counter text
+        updates rapidly during the animation; like the typewriter effect in
+        the Typing &amp; Scramble chapter, this content is not marked
+        <code>aria-live</code>, so screen readers won't announce every
+        intermediate value (which would be overwhelming) — only the final
+        settled value is available to be read on demand. Reduced motion is
+        handled by the sitewide rule in <code>shared/doc-page.css</code> for
+        CSS transitions/animations, though — like the typewriter effect —
+        this counter's motion is JS/rAF-driven and isn't directly affected
+        by that CSS rule; checking <code>matchMedia</code> before running
+        the eased count (and jumping straight to the final value if reduced
+        motion is preferred) is a good exercise extension.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        The trigger is click/tap-driven. A single-element rAF loop like
+        this one is inexpensive enough to run smoothly even on lower-powered
+        mobile devices.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>requestAnimationFrame</code></td><td>24+</td><td>23+</td><td>6.1+</td><td>Universally supported.</td></tr>
+          <tr><td><code>Number.prototype.toLocaleString</code></td><td>24+</td><td>29+</td><td>10+</td><td>Universally supported.</td></tr>
+          <tr><td><code>font-variant-numeric: tabular-nums</code></td><td>52+</td><td>34+</td><td>9.1+</td><td>Universally supported.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="counter-number.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

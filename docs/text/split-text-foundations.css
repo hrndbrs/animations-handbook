@@ -1,0 +1,38 @@
+/* docs/text/split-text-foundations.css
+   Styles for the split-text stagger-reveal demo. .split-text__piece's
+   base display:inline-block comes from shared/doc-page.css; this file only
+   adds the opacity/transform animation on top of it. */
+
+.split-text-demo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.5rem;
+}
+
+.split-text-demo__sentence {
+  font-size: 1.25rem;
+  min-height: 2.5rem;
+  margin: 0;
+}
+
+.split-text-demo .split-text__piece {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.split-text-demo .split-text__piece.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.split-text-demo__trigger {
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+}

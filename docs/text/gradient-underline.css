@@ -1,0 +1,44 @@
+/* docs/text/gradient-underline.css
+   Styles for two pure-CSS demos: (1) an animated gradient headline via
+   background-clip: text, (2) an animated underline revealed on hover/focus
+   via a background-size transition. No JS anywhere in this chapter. */
+
+.gradient-text-demo__heading {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-2), var(--color-accent));
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-text-shift 3s linear infinite;
+}
+
+@keyframes gradient-text-shift {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 200% 50%;
+  }
+}
+
+.underline-demo__link {
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: 1.1rem;
+  font-weight: 600;
+  background-image: linear-gradient(var(--color-accent), var(--color-accent));
+  background-size: 0% 2px;
+  background-repeat: no-repeat;
+  background-position: left bottom;
+  transition: background-size 0.3s ease;
+  padding-bottom: 2px;
+}
+
+.underline-demo__link:hover,
+.underline-demo__link:focus-visible {
+  background-size: 100% 2px;
+}

@@ -1,0 +1,52 @@
+/* docs/text/typing-scramble.css
+   Styles for two demos: (1) typewriter reveal — a single text node whose
+   content grows character by character, plus a blinking caret; (2)
+   scramble reveal — per-character spans (via split-text.js) that cycle
+   through random characters before resolving to the final text. */
+
+.typing-demo,
+.scramble-demo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.typing-demo__text {
+  font-size: 1.25rem;
+  min-height: 2.5rem;
+  font-family: var(--font-mono);
+}
+
+.typing-demo__caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background: var(--color-accent);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: typing-caret-blink 1s step-end infinite;
+}
+
+@keyframes typing-caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.scramble-demo__text {
+  font-size: 1.25rem;
+  min-height: 2.5rem;
+  font-family: var(--font-mono);
+}
+
+.typing-demo__trigger,
+.scramble-demo__trigger {
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+}

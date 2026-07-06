@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Letter/Word Reveal &amp; Stagger — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="letter-word-reveal.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/text/letter-word-reveal.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Letter/Word Reveal &amp; Stagger</h1>
+    <p>Combining split-text.js with scroll-triggered reveal, at the word level instead of the whole-element level.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        Phase 1's Scroll Reveal chapter staggers whole list items in as they
+        enter the viewport. This chapter applies the same idea one level
+        finer: instead of revealing whole elements, it reveals individual
+        words within a single paragraph, using
+        <a href="../../docs/text/split-text-foundations.html">split-text.js</a>
+        to get one element per word to stagger.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        The mechanics are identical to Phase 1's Scroll Reveal chapter:
+        <code>IntersectionObserver</code> detects viewport entry
+        asynchronously without forced-layout polling, and the actual reveal
+        animation is a plain CSS <code>transition</code> on
+        <code>opacity</code>/<code>transform</code>, staying composite-only
+        regardless of how many words are being staggered.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — split the paragraph by word, and give each word a staggered transition delay based on its index:</p>
+      <pre><code class="language-javascript">import { splitText } from '../../utils/split-text.js';
+
+const paragraph = document.getElementById('reveal-paragraph');
+const words = splitText(paragraph, { by: 'word' });
+
+words.forEach((word, index) => {
+  word.style.transitionDelay = `${index * 60}ms`;
+});</code></pre>
+      <p>Step 2 — observe the whole paragraph (not each word individually) — once it's 30% visible, reveal every word at once, letting each one's own <code>transitionDelay</code> create the stagger:</p>
+      <pre><code class="language-javascript">const observer = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        words.forEach((word) => word.classList.add('is-visible'));
+        observer.disconnect();
+      }
+    });
+  },
+  { threshold: 0.3 }
+);
+
+observer.observe(paragraph);</code></pre>
+      <p>
+        This is a one-shot reveal for the whole paragraph, so
+        <code>observer.disconnect()</code> (rather than
+        <code>unobserve()</code> on each word — there'd be nothing to
+        unobserve per word, since only the paragraph itself is observed)
+        is called once triggered.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <p>Scroll this box to reveal the paragraph, word by word:</p>
+      <div class="demo word-reveal" style="max-height: 220px; overflow-y: auto;">
+        <p class="word-reveal__paragraph" id="reveal-paragraph">Scroll down inside this box until each word fades and slides into place, one after another, in reading order.</p>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Change the stagger to reveal words in random order instead of reading order, by shuffling the delay assignment.</li>
+        <li>Switch <code>{ by: 'word' }</code> to <code>{ by: 'char' }</code> and adjust the stagger delay to something much smaller, to compare word-level vs. character-level reveal pacing.</li>
+        <li>Add a second paragraph below the first, observed independently, to confirm the technique scales to multiple text blocks on one page.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Observing every individual word span instead of the whole paragraph — creates unnecessary observer overhead and complicates the one-shot-reveal logic for no benefit, since the words all need to reveal together anyway.</li>
+        <li>Forgetting <code>observer.disconnect()</code> (or <code>unobserve()</code>) after the one-shot reveal fires — the observer keeps tracking an element that will never need to fire again.</li>
+        <li>Applying the stagger delay after adding the <code>is-visible</code> class instead of before — the delay must already be set on the element before the class change triggers the transition, or the browser may not pick it up in time.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        Splitting a paragraph by word creates one element per word rather
+        than per character, which is significantly cheaper for longer text
+        — a reasonable default granularity for anything beyond a short
+        headline.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        <code>split-text.js</code>'s accessibility pattern applies here
+        directly: the word spans are <code>aria-hidden="true"</code>, and
+        the visually-hidden fallback holds the full paragraph text, so
+        screen readers read it normally regardless of the visual reveal
+        state. Reduced motion is handled by the sitewide rule in
+        <code>shared/doc-page.css</code> — no local override in this
+        chapter.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        <code>IntersectionObserver</code> works identically for touch-driven
+        scrolling. Word-level splitting keeps the element count (and
+        therefore the animation cost) lower than character-level splitting
+        would for the same paragraph, which matters more on lower-powered
+        devices as paragraph length grows.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>IntersectionObserver</code></td><td>51+</td><td>55+</td><td>12.1+</td><td>Universally supported in evergreen browsers.</td></tr>
+          <tr><td><code>document.createDocumentFragment</code> (via split-text.js)</td><td>1+</td><td>1+</td><td>1+</td><td>Universally supported.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="letter-word-reveal.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

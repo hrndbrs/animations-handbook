@@ -1,0 +1,24 @@
+/* docs/text/letter-word-reveal.css
+   Styles for the scroll-triggered word-stagger reveal. Reuses the scrollable
+   demo-box pattern from Phase 1's Scroll Reveal chapter. */
+
+.word-reveal {
+  padding: 1rem 0;
+}
+
+.word-reveal__paragraph {
+  font-size: 1.15rem;
+  line-height: 1.8;
+  margin: 0;
+}
+
+.word-reveal .split-text__piece {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+
+.word-reveal .split-text__piece.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}

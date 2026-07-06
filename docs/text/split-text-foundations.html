@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Split Text Foundations — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="split-text-foundations.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/text/split-text-foundations.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Split Text Foundations</h1>
+    <p>Before animating individual letters or words, you need them as individual elements — and that has to be done without breaking screen readers.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        Most text-animation techniques (typing aside) need each character
+        or word to be its own DOM element, so CSS/JS can animate them
+        independently — a stagger-fade, a scramble effect, or a per-letter
+        hover all require that granularity. The naive approach — wrapping
+        every character in its own <code>&lt;span&gt;</code> — breaks
+        accessibility if done carelessly: some screen readers announce the
+        fragmented markup letter by letter ("H. E. L. L. O.") instead of
+        reading the word normally.
+      </p>
+      <p>
+        The fix used throughout this handbook's text chapters: mark every
+        generated span <code>aria-hidden="true"</code> (so assistive
+        technology skips the fragmented markup entirely), and keep the
+        original, unsplit text present in a visually-hidden element instead
+        — visually-hidden, not <code>display: none</code>, so it still
+        exists for screen readers to read normally while being invisible
+        on screen.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        Assistive technology builds its reading order from the accessibility
+        tree, which is derived from the DOM and influenced by ARIA
+        attributes — <code>aria-hidden="true"</code> removes an element
+        (and its descendants) from that tree entirely, while leaving it
+        fully present and rendered in the regular DOM/CSSOM. This is why
+        the technique works: sighted users still see the per-character
+        spans (needed for the visual animation), while screen readers never
+        see them at all, reading the visually-hidden full-text element
+        instead.
+      </p>
+      <p>
+        <code>display: none</code> would also hide an element from the
+        accessibility tree — but it would hide it from sighted users too,
+        which is the opposite of what's needed here (the visually-hidden
+        technique needs to hide something visually while keeping it
+        accessible, using absolute positioning and clipping instead of
+        <code>display: none</code>).
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — split the element's text into individual characters, and build a visually-hidden fallback holding the original text:</p>
+      <pre><code class="language-javascript">export function splitText(element, { by = 'char' } = {}) {
+  const originalText = element.textContent;
+  const pieces = by === 'word'
+    ? originalText.split(/(\s+)/).filter((piece) => piece.length > 0)
+    : originalText.split('');
+
+  const visuallyHidden = document.createElement('span');
+  visuallyHidden.textContent = originalText;
+  visuallyHidden.style.position = 'absolute';
+  visuallyHidden.style.width = '1px';
+  visuallyHidden.style.height = '1px';
+  visuallyHidden.style.overflow = 'hidden';
+  visuallyHidden.style.clip = 'rect(0 0 0 0)';
+  visuallyHidden.style.whiteSpace = 'nowrap';</code></pre>
+      <p>Step 2 — build one <code>aria-hidden</code> span per piece, and swap the element's content for the visually-hidden fallback plus the new spans:</p>
+      <pre><code class="language-javascript">  const fragment = document.createDocumentFragment();
+  const pieceSpans = [];
+
+  pieces.forEach((piece) => {
+    const span = document.createElement('span');
+    span.textContent = piece;
+    span.setAttribute('aria-hidden', 'true');
+    span.classList.add('split-text__piece');
+    fragment.appendChild(span);
+    if (piece.trim().length > 0) {
+      pieceSpans.push(span);
+    }
+  });
+
+  element.textContent = '';
+  element.appendChild(visuallyHidden);
+  element.appendChild(fragment);
+
+  return pieceSpans;
+}</code></pre>
+      <p>Step 3 — this chapter's demo calls it, then stagger-fades each returned piece in with a per-index transition delay:</p>
+      <pre><code class="language-javascript">import { splitText } from '../../utils/split-text.js';
+
+function runReveal() {
+  const pieces = splitText(target, { by: 'char' });
+  pieces.forEach((piece, index) => {
+    piece.style.transitionDelay = `${index * 30}ms`;
+  });
+  void target.offsetWidth;
+  requestAnimationFrame(() => {
+    pieces.forEach((piece) => piece.classList.add('is-visible'));
+  });
+}</code></pre>
+      <p>
+        The <code>void target.offsetWidth;</code> line forces a synchronous
+        style/layout flush, committing the CSS-declared initial state
+        (<code>opacity: 0</code> on freshly-created pieces) as an actual
+        rendered frame before the next-frame class addition. Without it,
+        the browser could collapse the insertion and the class change into
+        a single style recalculation with no observable "before" state,
+        and skip the transition entirely — since <code>splitText()</code>
+        creates brand-new elements every call, there's nothing being
+        "removed and re-added" here; the reflow's job is purely to commit
+        the initial state before the visible one is requested.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo split-text-demo">
+        <p class="split-text-demo__sentence" id="split-text-target">Every letter becomes its own element.</p>
+        <button type="button" class="split-text-demo__trigger" id="split-text-trigger">Split &amp; reveal</button>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Change the demo to split by word (<code>{ by: 'word' }</code>) instead of by character and observe how the stagger reads differently.</li>
+        <li>Turn on a screen reader (VoiceOver, NVDA, or similar) and confirm the sentence is announced normally, not letter by letter.</li>
+        <li>Temporarily remove the <code>aria-hidden="true"</code> attribute from the generated spans and re-test with a screen reader to hear the difference.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Splitting text into spans without <code>aria-hidden</code> — screen readers may announce every character individually.</li>
+        <li>Using <code>display: none</code> for the "keep the real text somewhere" fallback instead of a visually-hidden technique — hides it from everyone, not just sighted users.</li>
+        <li>Forgetting the forced-reflow (<code>void element.offsetWidth</code>) step after creating fresh elements with a CSS-declared initial state — the browser can collapse the insertion and the next state change into one style recalculation with no observable "before" state, silently skipping the transition.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        Splitting text creates one DOM element per character (or word),
+        which is fine for a sentence or two but should be used sparingly on
+        very long text blocks — hundreds of spans is still cheap, but tens
+        of thousands would add measurable DOM overhead for no visual
+        benefit beyond a handful of visible words at a time.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        This chapter's entire subject is an accessibility technique: the
+        generated spans are <code>aria-hidden="true"</code>, and the
+        original full sentence remains in a visually-hidden element for
+        screen readers. Reduced motion is handled by the sitewide rule in
+        <code>shared/doc-page.css</code> — no local override in this
+        chapter.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        The trigger is a real <code>&lt;button&gt;</code>, click/tap-driven.
+        Splitting and animating a short sentence is inexpensive even on
+        lower-powered mobile devices.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>document.createDocumentFragment</code></td><td>1+</td><td>1+</td><td>1+</td><td>Universally supported.</td></tr>
+          <tr><td><code>aria-hidden</code></td><td>Universal</td><td>Universal</td><td>Universal</td><td>Supported by all major screen readers.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="split-text-foundations.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>
