@@ -14,6 +14,11 @@ const CHAPTERS = [
   { href: 'docs/css-properties/filters-masking.html', title: 'Filters & Masking', category: 'CSS Properties' },
   { href: 'docs/css-properties/shadows-gradients.html', title: 'Shadows & Gradients', category: 'CSS Properties' },
   { href: 'docs/css-properties/custom-properties.html', title: 'CSS Custom Properties & @property', category: 'CSS Properties' },
+  { href: 'docs/text/split-text-foundations.html', title: 'Split Text Foundations', category: 'Text' },
+  { href: 'docs/text/typing-scramble.html', title: 'Typing & Scramble Effects', category: 'Text' },
+  { href: 'docs/text/letter-word-reveal.html', title: 'Letter/Word Reveal & Stagger', category: 'Text' },
+  { href: 'docs/text/gradient-underline.html', title: 'Gradient Text & Underline Animation', category: 'Text' },
+  { href: 'docs/text/counter-number.html', title: 'Counter & Number Animation', category: 'Text' },
 ];
 
 class SiteHeader extends HTMLElement {

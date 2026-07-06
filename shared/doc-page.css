@@ -183,3 +183,9 @@ code {
 .callout-list li {
   margin-bottom: 0.75rem;
 }
+
+/* --- Split text pieces (rendered by utils/split-text.js) --- */
+
+.split-text__piece {
+  display: inline-block;
+}
