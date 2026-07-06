@@ -93,3 +93,7 @@ chapters don't assume you've read the others.
 - [Animated Icons](docs/svg/animated-icons.html)
 - [SVG Filters & Effects](docs/svg/svg-filters.html)
 - [SMIL vs CSS vs JS Animation](docs/svg/smil-css-js-comparison.html)
+
+**Transform**
+- [Transform Deep Dive](docs/transform/transform-deep-dive.html)
+- [Timing & Easing](docs/transform/timing-easing.html)

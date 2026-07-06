@@ -147,22 +147,62 @@
     </section>
 
     <section class="doc-page__section">
+      <h2>Transform</h2>
+      <ul class="callout-list">
+        <li>
+          <a href="docs/transform/transform-deep-dive.html">Transform Deep Dive</a>
+          — matrix3d, transform composition order, and preserve-3d.
+        </li>
+        <li>
+          <a href="docs/transform/timing-easing.html">Timing &amp; Easing</a>
+          — spring physics, custom cubic-bezier curves, and eased stagger sequencing.
+        </li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
       <h2>About this project</h2>
       <p>
-        Phase 1 built the site's foundation and proved the documentation
-        pattern with 3 exemplar chapters, one per animation engine. Phase 2
-        extended that pattern breadth-wise across CSS properties. Phase 3
-        added Text Animations, including the site's first new shared
-        utility since Phase 1 (<code>utils/split-text.js</code>). Phase 4
-        added Mouse Interactions, reusing <code>utils/math.js</code> and
-        the pointer-tracking pattern from Phase 1's Canvas chapter across
-        5 pointer-driven demos. Phase 5 covered SVG — the fourth core
-        animation engine named in this project's original brief but
-        deferred until now — across three sub-phases for depth: Path
-        Drawing, Shape Morphing, Animated Icons, SVG Filters &amp;
-        Effects, and SMIL vs CSS vs JS Animation. Many more categories
-        remain (Transform Deep Dive, Timing/Easing, more Scroll/Parallax,
-        more Canvas effects, and more) and will arrive in later phases.
+        Built phase by phase, each one adding a category and — where
+        needed — a new shared utility:
+      </p>
+      <ol class="callout-list">
+        <li>
+          <strong>Phase 1</strong> — site foundation, proving the
+          documentation pattern with 3 exemplar chapters, one per
+          animation engine.
+        </li>
+        <li>
+          <strong>Phase 2</strong> — CSS Properties, extending the pattern
+          breadth-wise.
+        </li>
+        <li>
+          <strong>Phase 3</strong> — Text Animations, plus the site's
+          first shared utility, <code>utils/split-text.js</code>.
+        </li>
+        <li>
+          <strong>Phase 4</strong> — Mouse Interactions, reusing
+          <code>utils/math.js</code> and the pointer-tracking pattern from
+          Phase 1's Canvas chapter across 5 pointer-driven demos.
+        </li>
+        <li>
+          <strong>Phase 5</strong> — SVG, the fourth core animation engine
+          named in this project's original brief but deferred until now,
+          across three sub-phases for depth: Path Drawing, Shape
+          Morphing, Animated Icons, SVG Filters &amp; Effects, and SMIL vs
+          CSS vs JS Animation.
+        </li>
+        <li>
+          <strong>Phase 6</strong> — Transform Deep Dive and Timing &amp;
+          Easing, going deeper on the declarative CSS engine from Phase 2
+          and introducing a third shared utility,
+          <code>utils/spring.js</code>.
+        </li>
+      </ol>
+      <p>
+        Many more categories remain (more Scroll/Parallax, more Canvas
+        effects, loading states, cards, buttons, forms, and more) and will
+        arrive in later phases.
       </p>
     </section>
   </main>

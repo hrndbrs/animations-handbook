@@ -29,6 +29,8 @@ const CHAPTERS = [
   { href: 'docs/svg/animated-icons.html', title: 'Animated Icons', category: 'SVG' },
   { href: 'docs/svg/svg-filters.html', title: 'SVG Filters & Effects', category: 'SVG' },
   { href: 'docs/svg/smil-css-js-comparison.html', title: 'SMIL vs CSS vs JS Animation', category: 'SVG' },
+  { href: 'docs/transform/transform-deep-dive.html', title: 'Transform Deep Dive', category: 'Transform' },
+  { href: 'docs/transform/timing-easing.html', title: 'Timing & Easing', category: 'Transform' },
 ];
 
 class SiteHeader extends HTMLElement {
