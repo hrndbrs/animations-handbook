@@ -95,17 +95,44 @@
     </section>
 
     <section class="doc-page__section">
+      <h2>Mouse Interactions</h2>
+      <ul class="callout-list">
+        <li>
+          <a href="docs/mouse/cursor-follower.html">Cursor Tracking &amp; Mouse Follower</a>
+          — a lerped follower dot, and the core "smooth the pointer position" pattern.
+        </li>
+        <li>
+          <a href="docs/mouse/magnetic-buttons.html">Magnetic Buttons</a>
+          — a button pulled toward the cursor within a radius.
+        </li>
+        <li>
+          <a href="docs/mouse/tilt-cards.html">Tilt Cards</a>
+          — real-time 3D tilt driven by cursor position within a card.
+        </li>
+        <li>
+          <a href="docs/mouse/ripple-spotlight.html">Ripple &amp; Spotlight Effects</a>
+          — a click ripple (keyboard-friendly) and a cursor-tracked spotlight glow.
+        </li>
+        <li>
+          <a href="docs/mouse/hover-distortion.html">Hover Reveal &amp; Image Distortion</a>
+          — hover zoom and cursor-driven skew distortion.
+        </li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
       <h2>About this project</h2>
       <p>
         Phase 1 built the site's foundation and proved the documentation
-        pattern with 3 exemplar chapters, one per animation engine — pure
-        CSS, observer-driven JS, and imperative JS+Canvas. Phase 2 extended
-        that pattern breadth-wise across CSS properties. Phase 3 added Text
-        Animations, including the site's first new shared utility since
-        Phase 1 (<code>utils/split-text.js</code>) for accessible
-        per-character/word text splitting. Many more categories remain
-        (timing, parallax, mouse interactions, SVG, more canvas techniques,
-        and more) and will arrive in later phases.
+        pattern with 3 exemplar chapters, one per animation engine. Phase 2
+        extended that pattern breadth-wise across CSS properties. Phase 3
+        added Text Animations, including the site's first new shared
+        utility since Phase 1 (<code>utils/split-text.js</code>). Phase 4
+        added Mouse Interactions, reusing <code>utils/math.js</code> and
+        the pointer-tracking pattern from Phase 1's Canvas chapter across
+        5 pointer-driven demos. Many more categories remain (Transform Deep
+        Dive, Timing/Easing, more Scroll/Parallax, SVG, more Canvas
+        effects, and more) and will arrive in later phases.
       </p>
     </section>
   </main>

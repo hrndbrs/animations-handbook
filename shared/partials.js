@@ -19,6 +19,11 @@ const CHAPTERS = [
   { href: 'docs/text/letter-word-reveal.html', title: 'Letter/Word Reveal & Stagger', category: 'Text' },
   { href: 'docs/text/gradient-underline.html', title: 'Gradient Text & Underline Animation', category: 'Text' },
   { href: 'docs/text/counter-number.html', title: 'Counter & Number Animation', category: 'Text' },
+  { href: 'docs/mouse/cursor-follower.html', title: 'Cursor Tracking & Mouse Follower', category: 'Mouse' },
+  { href: 'docs/mouse/magnetic-buttons.html', title: 'Magnetic Buttons', category: 'Mouse' },
+  { href: 'docs/mouse/tilt-cards.html', title: 'Tilt Cards', category: 'Mouse' },
+  { href: 'docs/mouse/ripple-spotlight.html', title: 'Ripple & Spotlight Effects', category: 'Mouse' },
+  { href: 'docs/mouse/hover-distortion.html', title: 'Hover Reveal & Image Distortion', category: 'Mouse' },
 ];
 
 class SiteHeader extends HTMLElement {
