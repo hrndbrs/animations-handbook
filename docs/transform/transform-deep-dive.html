@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Transform Deep Dive — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="transform-deep-dive.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/transform/transform-deep-dive.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Transform Deep Dive</h1>
+    <p>Every transform shorthand you've used is secretly matrix multiplication — and the order you write functions in changes the result.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        <code>rotate()</code>, <code>translate()</code>, and
+        <code>scale()</code> aren't independent mechanisms — each one
+        compiles to a 4x4 transformation matrix, and
+        <code>transform: a() b() c()</code> multiplies those matrices
+        together. <code>matrix3d()</code> is that resulting matrix spelled
+        out explicitly as 16 numbers, rather than a separate feature.
+      </p>
+      <p>
+        Matrix multiplication is not commutative, so the order functions
+        are listed in changes the outcome:
+        <code>rotate(45deg) translateX(120px)</code> first rotates the
+        coordinate system, then translates along the now-rotated axis
+        (the element moves diagonally); <code>translateX(120px)
+        rotate(45deg)</code> translates first, then rotates around the
+        already-shifted origin — a different final position entirely,
+        from the exact same two function calls.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        Regardless of whether a transform is written as a function list
+        (<code>rotate() translate()</code>) or as an explicit
+        <code>matrix3d()</code>, the browser resolves it down to the same
+        matrix before handing it to the compositor — there's no
+        performance difference between the two forms, only a readability
+        one. All three of this chapter's demos stay entirely within
+        <code>transform</code>, so — unlike Phase 5's SVG chapters, where
+        several techniques genuinely forced paint or layout — everything
+        here remains composite-only.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 (Demo 1) — the same two function calls, reversed, transitioned from rest on a button click:</p>
+      <pre><code class="language-css">.order-demo__box--rotate-first.is-transformed {
+  transform: rotate(45deg) translateX(120px);
+}
+.order-demo__box--translate-first.is-transformed {
+  transform: translateX(120px) rotate(45deg);
+}</code></pre>
+      <p>Step 2 (Demo 2) — a rotateZ + uniform scale + translateX composed by hand into the 16 numbers <code>matrix3d()</code> expects, column by column:</p>
+      <pre><code class="language-javascript">const cos = Math.cos(angle);
+const sin = Math.sin(angle);
+const values = [
+  scale * cos, scale * sin, 0, 0,
+  -scale * sin, scale * cos, 0, 0,
+  0, 0, 1, 0,
+  tx, 0, 0, 1,
+];
+box.style.transform = `matrix3d(${values.join(', ')})`;</code></pre>
+      <p>Step 3 (Demo 3) — a parent with <code>perspective</code> gives its 3D children a shared vanishing point; <code>transform-style: preserve-3d</code> on the rotating group keeps the cards' individual <code>translateZ</code> positions intact as the whole group rotates:</p>
+      <pre><code class="language-css">.stack-demo__stage {
+  perspective: 800px;
+}
+.stack-demo__group {
+  transform-style: preserve-3d;
+  animation: stack-rotate 6s linear infinite;
+}
+.stack-demo__card {
+  transform: translateZ(var(--card-offset));
+}</code></pre>
+      <p>
+        Switching that same group to <code>transform-style: flat</code>
+        collapses each card's <code>translateZ</code> into the group's own
+        2D plane before the group's rotation is even applied — the cards
+        visually flatten into a single overlapping stack instead of
+        keeping their fanned 3D arrangement.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo">
+        <p>Same two transform functions, reversed order:</p>
+        <div class="order-demo__stage">
+          <div class="order-demo__box order-demo__box--rotate-first">rotate() then translate()</div>
+          <div class="order-demo__box order-demo__box--translate-first">translate() then rotate()</div>
+        </div>
+        <div class="order-demo__controls">
+          <button type="button" id="order-toggle-btn">Apply transform</button>
+        </div>
+      </div>
+      <div class="demo">
+        <p>Sliders compose a live <code>matrix3d()</code> string:</p>
+        <div class="matrix-demo__stage">
+          <div class="matrix-demo__box" id="matrix-box"></div>
+          <div class="matrix-demo__controls">
+            <label>Rotate <input type="range" id="matrix-rotate" min="-180" max="180" value="0" /></label>
+            <label>Translate X <input type="range" id="matrix-translate" min="-100" max="100" value="0" /></label>
+            <label>Scale <input type="range" id="matrix-scale" min="0.5" max="2" step="0.05" value="1" /></label>
+          </div>
+        </div>
+        <p class="matrix-demo__output" id="matrix-output"></p>
+      </div>
+      <div class="demo">
+        <p>
+          <label><input type="checkbox" id="preserve-3d-toggle" checked /> transform-style: preserve-3d</label>
+        </p>
+        <div class="stack-demo__stage">
+          <div class="stack-demo__group" id="stack-group" aria-hidden="true">
+            <div class="stack-demo__card" style="--card-offset: -60px;">1</div>
+            <div class="stack-demo__card" style="--card-offset: -20px;">2</div>
+            <div class="stack-demo__card" style="--card-offset: 20px;">3</div>
+            <div class="stack-demo__card" style="--card-offset: 60px;">4</div>
+          </div>
+        </div>
+        <div class="perspective-demo__row" aria-hidden="true">
+          <div class="perspective-demo__stage">
+            <div class="perspective-demo__box perspective-demo__box--parent">perspective on parent</div>
+          </div>
+          <div class="perspective-demo__box perspective-demo__box--function">perspective() in transform</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Add a third box to Demo 1 using <code>translate(120px, 0) rotate(45deg) translate(-120px, 0)</code> (rotate around a point other than the element's own origin) and compare its resting position to the other two.</li>
+        <li>Extend Demo 2's matrix math to also compose a <code>skewX</code> term, and add a fourth slider for it.</li>
+        <li>Change Demo 3's card count from 4 to 8 and adjust the <code>--card-offset</code> spacing so the fanned stack doesn't self-intersect.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Assuming transform function order doesn't matter — as Demo 1 shows directly, the exact same two function calls in reversed order produce two different final positions.</li>
+        <li>Applying <code>transform-style: preserve-3d</code> to the 3D-positioned children themselves instead of their shared parent — it needs to live on the element whose children should keep their individual 3D positions as a group, not on each child individually.</li>
+        <li>Forgetting <code>perspective</code> entirely (on the parent, or as a <code>perspective()</code> function) — 3D rotations still apply without it, but render as a flat, undistorted squash instead of true depth.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        Every demo in this chapter only ever touches <code>transform</code>
+        — whether written as a function list or as an explicit
+        <code>matrix3d()</code>, the browser resolves both to the same
+        compositor-ready matrix, so this stays composite-only regardless
+        of how complex the composition is. This is a deliberate contrast
+        with Phase 5's SVG chapters, several of which genuinely forced
+        paint or layout — nothing here does.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        Demo 1's trigger is a real <code>&lt;button&gt;</code>, fully
+        keyboard-operable; the two boxes it animates are decorative with
+        no unique information. Demo 2's sliders are native
+        <code>&lt;input type="range"&gt;</code> elements, already
+        keyboard-adjustable via arrow keys with no extra work needed —
+        the same built-in accessibility this site's Transform Variants
+        chapter (Phase 2) relies on for its own sliders. Demo 3's toggle
+        is a native checkbox; the rotating card stack and the
+        perspective-comparison boxes are both marked
+        <code>aria-hidden="true"</code> since they're purely illustrative
+        and convey nothing beyond what the surrounding prose already
+        states.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        All three demos work identically on touch: Demo 1's button taps
+        like any button, Demo 2's range inputs are natively
+        touch-draggable, and Demo 3's checkbox toggles via tap. Nothing in
+        this chapter depends on hover or a mouse-only input.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>matrix3d()</code></td><td>36+</td><td>16+</td><td>9+</td><td>Universally supported.</td></tr>
+          <tr><td><code>transform-style: preserve-3d</code></td><td>36+</td><td>16+</td><td>9+</td><td>Universally supported.</td></tr>
+          <tr><td><code>perspective</code> (property and function)</td><td>36+</td><td>16+</td><td>9+</td><td>Universally supported.</td></tr>
+          <tr><td><code>&lt;input type="range"&gt;</code></td><td>4+</td><td>23+</td><td>4+</td><td>Baseline HTML form control, universally supported.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="transform-deep-dive.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

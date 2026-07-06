@@ -1,0 +1,157 @@
+/* docs/transform/transform-deep-dive.css
+   Three demos, all transform-only (composite-only throughout, a return
+   to this site's default Performance framing after Phase 5's SVG
+   chapters): (1) two boxes reaching different final positions from the
+   same transform values in reversed order; (2) sliders live-composing a
+   raw matrix3d() string; (3) a preserve-3d card stack contrasted against
+   a flattened one, plus a parent-perspective vs perspective()-function
+   contrast. */
+
+.order-demo__stage {
+  display: flex;
+  gap: 4rem;
+  justify-content: center;
+  padding: 2rem 0 3rem;
+}
+
+.order-demo__box {
+  width: 70px;
+  height: 70px;
+  background: var(--color-accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  text-align: center;
+  transition: transform 0.8s ease;
+}
+
+.order-demo__box--rotate-first.is-transformed {
+  transform: rotate(45deg) translateX(120px);
+}
+
+.order-demo__box--translate-first.is-transformed {
+  transform: translateX(120px) rotate(45deg);
+}
+
+.order-demo__controls {
+  display: flex;
+  justify-content: center;
+}
+
+.order-demo__controls button {
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+.matrix-demo__stage {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 0;
+}
+
+.matrix-demo__box {
+  width: 80px;
+  height: 80px;
+  background: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.matrix-demo__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 220px;
+}
+
+.matrix-demo__controls label {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.matrix-demo__output {
+  font-family: monospace;
+  font-size: 0.75rem;
+  word-break: break-all;
+  color: var(--color-text-muted);
+}
+
+.stack-demo__stage {
+  perspective: 800px;
+  display: flex;
+  justify-content: center;
+  padding: 3rem 0;
+}
+
+.stack-demo__group {
+  position: relative;
+  width: 100px;
+  height: 140px;
+  transform-style: preserve-3d;
+  animation: stack-rotate 6s linear infinite;
+}
+
+.stack-demo__group.is-flat {
+  transform-style: flat;
+}
+
+.stack-demo__card {
+  position: absolute;
+  inset: 0;
+  background: var(--color-surface);
+  border: 1px solid #24262f;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  transform: translateZ(var(--card-offset));
+}
+
+@keyframes stack-rotate {
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+.perspective-demo__row {
+  display: flex;
+  gap: 3rem;
+  justify-content: center;
+  padding: 1rem 0;
+}
+
+.perspective-demo__stage {
+  perspective: 400px;
+}
+
+.perspective-demo__box {
+  width: 100px;
+  height: 100px;
+  background: var(--color-accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.75rem;
+  padding: 0.5rem;
+}
+
+.perspective-demo__box--parent {
+  transform: rotateY(45deg);
+}
+
+.perspective-demo__box--function {
+  transform: perspective(400px) rotateY(45deg);
+}
