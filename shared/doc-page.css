@@ -60,29 +60,137 @@ body {
   font-size: 1.1rem;
 }
 
+/* Hamburger toggle: visible by default (mobile), hidden at the desktop
+   breakpoint below, where the nav is always shown horizontally instead. */
+.site-header__menu-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: 1px solid #24262f;
+  border-radius: 6px;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+}
+
+.site-header__menu-icon {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: currentColor;
+  position: relative;
+  transition: background-color 0.25s ease;
+}
+
+.site-header__menu-icon::before,
+.site-header__menu-icon::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 18px;
+  height: 2px;
+  background: currentColor;
+  transition: transform 0.25s ease, top 0.25s ease;
+}
+
+.site-header__menu-icon::before {
+  top: -6px;
+}
+
+.site-header__menu-icon::after {
+  top: 6px;
+}
+
+/* Hamburger -> X: when the panel is open, hide the middle bar and rotate
+   the other two into an X, pivoting around the icon's own center. */
+.site-header__menu-toggle[aria-expanded="true"] .site-header__menu-icon {
+  background: transparent;
+}
+
+.site-header__menu-toggle[aria-expanded="true"] .site-header__menu-icon::before {
+  top: 0;
+  transform: rotate(45deg);
+}
+
+.site-header__menu-toggle[aria-expanded="true"] .site-header__menu-icon::after {
+  top: 0;
+  transform: rotate(-45deg);
+}
+
+/* --- Nav: mobile default is a hidden accordion panel, toggled by the
+   hamburger button (see shared/partials.js). Native <details>/<summary>
+   toggles instantly with no transition, so shared/partials.js intercepts
+   the summary click and animates max-height itself instead of relying on
+   the browser's built-in open/close — CSS alone handles the hamburger
+   icon and the +/- indicator, but the actual panel/accordion motion is
+   JS-driven because "animate a box from its current height to auto" has
+   no pure-CSS solution that works with dynamically-sized content here. */
+
 .site-nav {
   display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  padding: 1rem 1.5rem;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.35s ease;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0 1.5rem;
   border-bottom: 1px solid #24262f;
 }
 
+.site-nav__group {
+  border-bottom: 1px solid #1c1f29;
+}
+
+.site-nav__group:last-child {
+  border-bottom: none;
+}
+
 .site-nav__group-title {
-  margin: 0 0 0.35rem;
-  font-size: 0.75rem;
+  cursor: pointer;
+  list-style: none;
+  padding: 0.6rem 0;
+  font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.site-nav__group-title::-webkit-details-marker {
+  display: none;
+}
+
+.site-nav__group-title::after {
+  content: '+';
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--color-text-muted);
+  transition: transform 0.25s ease;
+}
+
+.site-nav__group[open] > .site-nav__group-title::after {
+  content: '+';
+  transform: rotate(135deg);
+}
+
+.site-nav__group-panel {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.3s ease;
 }
 
 .site-nav ul {
   list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
   margin: 0;
-  padding: 0;
+  padding: 0 0 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .site-nav a {
@@ -94,6 +202,64 @@ body {
 .site-nav a[aria-current="page"] {
   color: var(--color-text);
   font-weight: 600;
+}
+
+/* --- Desktop: hamburger hidden, nav always visible as a horizontal bar;
+   each category's <details> becomes a click-to-open dropdown instead of
+   an inline accordion section. --- */
+@media (min-width: 860px) {
+  .site-header__menu-toggle {
+    display: none;
+  }
+
+  .site-nav {
+    display: flex;
+    overflow: visible;
+    max-height: none !important;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    padding: 0.75rem 1.5rem;
+    border-bottom: 1px solid #24262f;
+    transition: none;
+  }
+
+  .site-nav__group {
+    position: relative;
+    border-bottom: none;
+  }
+
+  .site-nav__group-title {
+    padding: 0.4rem 0;
+  }
+
+  .site-nav__group-panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 220px;
+    margin-top: 0.25rem;
+    z-index: 20;
+    /* Height still animates via JS-driven max-height (position: absolute
+       takes it out of normal flow, but max-height/overflow still apply to
+       the element's own box regardless of its positioning scheme), fading
+       in alongside the height grow so it reads as a real dropdown opening
+       rather than a panel stretching open. */
+    opacity: 0;
+    transition: max-height 0.25s ease, opacity 0.2s ease;
+  }
+
+  .site-nav__group[open] > .site-nav__group-panel {
+    opacity: 1;
+  }
+
+  .site-nav ul {
+    padding: 0.75rem;
+    background: var(--color-surface);
+    border: 1px solid #24262f;
+    border-radius: 8px;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+  }
 }
 
 .site-footer {
