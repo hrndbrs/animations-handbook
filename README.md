@@ -11,21 +11,29 @@ them to make things move. No prior animation experience assumed.
 
 ## Chapter format
 
-Every chapter follows the same six-part structure, in this order:
+Every chapter follows the same ten-section structure, in this order:
 
-1. **Theory** — what the technique is, and the browser rendering behavior
-   (layout/paint/composite) that makes it work or perform the way it does.
-2. **Implementation** — the full working code, commented line by line, so
-   you can see exactly why each piece exists.
-3. **Live demo** — an interactive version embedded in the page. Play with
-   it, change its inputs, watch what breaks, before reading further.
-4. **Exercises** — small modifications to make to the demo yourself. Do
+1. **Theory** — what the technique is and why it works the way it does.
+2. **Browser internals** — the rendering behavior (layout/paint/composite)
+   behind the technique, and what that costs.
+3. **Step-by-step implementation** — the full working code, commented and
+   built up piece by piece, so you can see exactly why each part exists.
+4. **Live interactive demo** — a working version embedded in the page.
+   Play with it, change its inputs, watch what breaks, before reading
+   further.
+5. **Exercises** — small modifications to make to the demo yourself. Do
    these before moving on; they're how you confirm you actually understood
    the technique rather than just recognizing it.
-5. **Common mistakes** — the specific ways people get this technique
+6. **Common mistakes** — the specific ways people get this technique
    wrong, and why those mistakes happen.
-6. **Notes** — performance cost, accessibility concerns, mobile behavior,
-   and browser-support caveats for the technique.
+7. **Performance considerations** — what this technique costs the browser,
+   and how to keep it cheap.
+8. **Accessibility considerations** — the concrete keyboard/screen-reader
+   fallback for this specific technique, not a generic disclaimer.
+9. **Mobile considerations** — how the technique degrades or adapts
+   without a mouse/hover/large viewport.
+10. **Browser compatibility** — a support table with the earliest version
+    per major browser, and any caveats.
 
 Read the demo and its source side by side — the explanation clicks once
 you've seen the code move, not before.
