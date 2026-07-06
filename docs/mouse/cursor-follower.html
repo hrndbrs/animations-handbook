@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cursor Tracking &amp; Mouse Follower — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="cursor-follower.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/mouse/cursor-follower.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Cursor Tracking &amp; Mouse Follower</h1>
+    <p>The cursor moves instantly; the element that follows it usually shouldn't.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        The simplest way to make an element "follow" the cursor is to set
+        its position directly to <code>event.clientX</code>/<code>clientY</code>
+        on every <code>pointermove</code> event — but this makes the element
+        rigidly glued to the cursor, which reads as mechanical rather than
+        alive. Lerping the followed position toward the target each frame
+        (rather than jumping straight to it) produces a trailing,
+        catching-up motion that feels much more natural, and is the basis
+        for most "magnetic"/"organic" cursor effects.
+      </p>
+      <p>
+        This is the same <code>lerp()</code> function from
+        <code>utils/math.js</code> already used by Phase 1's Canvas
+        Particle System chapter — the underlying idea (ease a current value
+        toward a target every frame) is identical whether the target is a
+        particle's home position or the live cursor position.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        <code>pointermove</code> fires far more often than once per
+        animation frame — on a high-polling-rate mouse it can fire well
+        over 60 times per second. Rather than repositioning the dot
+        directly inside the event handler, this demo only updates a plain
+        <code>pointer</code> object there, and applies the actual
+        <code>transform</code> change inside the <code>requestAnimationFrame</code>
+        loop — decoupling "how often the raw input arrives" from "how often
+        the DOM is actually touched," which keeps the visible update rate
+        capped at the display's real refresh rate no matter how chatty the
+        input events are.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — track the raw pointer position and a separately-eased "current" position, both starting at the stage's center:</p>
+      <pre><code class="language-javascript">const pointer = { x: stage.clientWidth / 2, y: stage.clientHeight / 2 };
+const current = { x: pointer.x, y: pointer.y };
+let hasPointer = false;</code></pre>
+      <p>Step 2 — the pointer handler only records the latest position; it never touches the DOM directly:</p>
+      <pre><code class="language-javascript">stage.addEventListener('pointermove', (event) => {
+  const rect = stage.getBoundingClientRect();
+  pointer.x = event.clientX - rect.left;
+  pointer.y = event.clientY - rect.top;
+  hasPointer = true;
+}, { passive: true });</code></pre>
+      <p>Step 3 — the render loop eases <code>current</code> toward <code>pointer</code> every frame, and only then applies it as a <code>transform</code>:</p>
+      <pre><code class="language-javascript">import { lerp } from '../../utils/math.js';
+
+function animate() {
+  if (hasPointer) {
+    current.x = lerp(current.x, pointer.x, 0.15);
+    current.y = lerp(current.y, pointer.y, 0.15);
+    dot.style.transform = `translate(${current.x}px, ${current.y}px)`;
+  }
+  requestAnimationFrame(animate);
+}
+
+requestAnimationFrame(animate);</code></pre>
+      <p>
+        The third argument to <code>lerp</code> (<code>0.15</code>) is the
+        "catch-up rate" per frame — smaller values produce a longer, more
+        pronounced trail; values close to <code>1</code> make it nearly
+        rigid.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo">
+        <div class="follower-demo__stage" id="follower-stage">
+          <span class="follower-demo__hint" id="follower-hint">Move your cursor here</span>
+          <span class="follower-demo__dot" id="follower-dot" aria-hidden="true"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Change the lerp factor from <code>0.15</code> to <code>0.05</code> and then to <code>0.5</code>, and compare how the trail length changes.</li>
+        <li>Give the dot its own independent lerped scale (grow slightly while moving, shrink at rest) using a second lerped value.</li>
+        <li>Add a second, slower-following dot (a different lerp factor) to create a two-layer trailing effect.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Setting the dot's position directly inside the <code>pointermove</code> handler instead of inside the <code>requestAnimationFrame</code> loop — ties visual updates to however often the raw input event fires, not to the display's actual refresh rate.</li>
+        <li>Forgetting to seed <code>current</code>'s initial value — if it starts at <code>{x: 0, y: 0}</code> instead of a sensible default, the dot visibly flies in from the corner the first time the cursor moves.</li>
+        <li>Using <code>left</code>/<code>top</code> instead of <code>transform: translate()</code> to position the dot — forces layout on every frame instead of staying composite-only.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        Only one element updates per frame here, and only via
+        <code>transform</code>, so this stays composite-only regardless of
+        how fast the cursor moves. The pattern scales to multiple
+        independently-lerped followers (see Exercise 3) at negligible
+        additional cost, since each is just a couple of extra arithmetic
+        operations per frame.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        The follower dot is purely decorative (<code>aria-hidden="true"</code>)
+        — nothing functional depends on it, so keyboard-only users lose
+        nothing by not seeing it move. There's no keyboard equivalent for
+        "continuous pointer position" to provide, since the effect has no
+        functional purpose beyond visual delight. The demo checks
+        <code>prefers-reduced-motion</code> in JS (CSS's media query cannot
+        stop a <code>requestAnimationFrame</code> loop) and skips the
+        lerped trailing when set, jumping the dot directly to the pointer
+        position instead.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        Touchscreens have no persistent hover/pointer position the way a
+        mouse does — <code>pointermove</code> only fires while a finger is
+        actively touching the screen, and <code>pointerleave</code> fires
+        on lifting. The demo already handles this correctly: the dot simply
+        doesn't move until a touch starts, and the hint text stays visible
+        until then.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Pointer Events (<code>pointermove</code>/<code>pointerleave</code>)</td><td>55+</td><td>59+</td><td>13+</td><td>Universally supported in evergreen browsers.</td></tr>
+          <tr><td><code>requestAnimationFrame</code></td><td>24+</td><td>23+</td><td>6.1+</td><td>Universally supported.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="cursor-follower.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

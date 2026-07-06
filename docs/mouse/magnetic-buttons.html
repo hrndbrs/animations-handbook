@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Magnetic Buttons — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="magnetic-buttons.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/mouse/magnetic-buttons.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Magnetic Buttons</h1>
+    <p>A button that leans toward the cursor as it approaches, like it's being pulled.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        A magnetic button measures the cursor's distance from the button's
+        center and, within a defined radius, nudges the button toward the
+        cursor proportional to how close it is — the pull is strongest
+        right at the button and fades to nothing at the radius's edge. This
+        is a small amount of "give," not a large displacement, which is
+        what makes it read as magnetic attraction rather than the button
+        chasing the cursor around.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        Same as Phase 2's Transform Variants chapter: the JS here only ever
+        writes to two CSS custom properties, never to
+        <code>style.transform</code> directly. The actual
+        <code>transform: translate(var(--magnet-x), var(--magnet-y))</code>
+        declaration lives in CSS, so the button's full transform behavior
+        is visible and editable in one place without touching JS.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — the button's transform is composed from two custom properties, with a springy overshoot easing curve for the pull/release motion:</p>
+      <pre><code class="language-css">.magnetic-demo__button {
+  --magnet-x: 0px;
+  --magnet-y: 0px;
+  transform: translate(var(--magnet-x), var(--magnet-y));
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}</code></pre>
+      <p>Step 2 — measure the cursor's offset from the button's center, and scale that offset down by how close the cursor is to the edge of the magnet radius:</p>
+      <pre><code class="language-javascript">import { clamp } from '../../utils/math.js';
+
+const MAGNET_RADIUS = 90;
+const MAGNET_STRENGTH = 0.4;
+
+function handlePointerMove(event) {
+  const rect = button.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  const dx = event.clientX - centerX;
+  const dy = event.clientY - centerY;
+  const distance = Math.hypot(dx, dy);
+
+  if (distance < MAGNET_RADIUS) {
+    const pull = clamp(1 - distance / MAGNET_RADIUS, 0, 1) * MAGNET_STRENGTH;
+    button.style.setProperty('--magnet-x', `${dx * pull}px`);
+    button.style.setProperty('--magnet-y', `${dy * pull}px`);
+  } else {
+    resetMagnet();
+  }
+}</code></pre>
+      <p>
+        <code>MAGNET_STRENGTH</code> (0.4) means the button only ever moves
+        40% of the raw cursor offset at most, right at the button's own
+        center — this keeps the effect subtle rather than having the button
+        fly all the way to the cursor.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo">
+        <div class="magnetic-demo__stage" id="magnetic-stage">
+          <button type="button" class="magnetic-demo__button" id="magnetic-button">Hover near me</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Change <code>MAGNET_STRENGTH</code> to <code>1</code> and observe how the button starts following the cursor almost exactly near its center — usually too strong for a good magnetic feel.</li>
+        <li>Add a subtle <code>scale()</code> to the button's transform, growing slightly while attracted, using a third custom property.</li>
+        <li>Apply the same technique to an icon inside the button (a smaller, independent magnet radius) for a two-layer magnetic effect.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Measuring distance from the pointer to the stage's corner instead of the button's own center — produces an off-center, lopsided pull.</li>
+        <li>Setting <code>MAGNET_STRENGTH</code> to 1 or higher — the button ends up chasing the cursor's exact position instead of leaning toward it, losing the "magnetic" feel.</li>
+        <li>Forgetting the <code>else { resetMagnet(); }</code> branch — the button gets stuck at its last pulled position if the cursor exits the radius by jumping (a fast mouse movement) rather than gradually leaving it.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        Only <code>transform</code> is touched, driven by two custom
+        properties — this stays composite-only regardless of how often
+        <code>pointermove</code> fires.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        The magnetic pull is a pointer-only enhancement layered on top of a
+        real, fully operable <code>&lt;button&gt;</code> — keyboard users
+        tabbing to it and pressing Enter/Space get the exact same click
+        behavior as a mouse user, just without ever seeing the pull
+        animation (there's no pointer position for it to react to). No
+        functionality is gated behind the magnetic effect.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        Touch has no "approaching" phase the way a mouse does — a finger
+        either isn't touching the screen or is already in direct contact —
+        so the magnetic pull effectively never engages on touch devices.
+        The button remains fully tappable regardless.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Pointer Events</td><td>55+</td><td>59+</td><td>13+</td><td>Universally supported in evergreen browsers.</td></tr>
+          <tr><td>CSS custom properties in <code>transform</code></td><td>49+</td><td>31+</td><td>9.1+</td><td>Universally supported.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="magnetic-buttons.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

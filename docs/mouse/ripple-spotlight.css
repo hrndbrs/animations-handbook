@@ -1,0 +1,61 @@
+/* docs/mouse/ripple-spotlight.css
+   Styles for two demos: (1) a click ripple, where JS creates and removes
+   a <span> per click; (2) a spotlight glow that tracks the cursor via a
+   CSS custom property, shown/hidden with a plain :hover (no JS needed for
+   the show/hide, only for updating the glow's position). */
+
+.ripple-demo__button {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 1rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ripple-demo__ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transform: scale(0);
+  animation: ripple-expand 0.6s ease-out;
+  pointer-events: none;
+}
+
+@keyframes ripple-expand {
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+.spotlight-demo__card {
+  --spot-x: 50%;
+  --spot-y: 50%;
+  position: relative;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid #24262f;
+  border-radius: 12px;
+  padding: 2rem;
+  color: var(--color-text-muted);
+}
+
+.spotlight-demo__card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--spot-x) var(--spot-y), rgba(79, 70, 229, 0.35), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.spotlight-demo__card:hover::before,
+.spotlight-demo__card:focus-within::before {
+  opacity: 1;
+}

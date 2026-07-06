@@ -1,0 +1,41 @@
+/* docs/mouse/hover-distortion.css
+   Styles for two demos: (1) a pure-CSS hover zoom using an overflow:hidden
+   frame around a scaled inner element — the same technique applies
+   identically to a real <img>, a gradient box stands in here since this
+   project has no image asset pipeline (see Phase 2's object-position
+   chapter for the same constraint); (2) a cursor-driven skew distortion
+   via two JS-updated custom properties. */
+
+.zoom-demo__frame {
+  overflow: hidden;
+  border-radius: 12px;
+  width: 260px;
+  height: 160px;
+}
+
+.zoom-demo__image {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, var(--color-accent-2), var(--color-accent));
+  transition: transform 0.4s ease;
+}
+
+.zoom-demo__frame:hover .zoom-demo__image {
+  transform: scale(1.15);
+}
+
+.distort-demo__box {
+  --distort-x: 0deg;
+  --distort-y: 0deg;
+  width: 260px;
+  height: 160px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 600;
+  transform: skew(var(--distort-x), var(--distort-y));
+  transition: transform 0.2s ease-out;
+}

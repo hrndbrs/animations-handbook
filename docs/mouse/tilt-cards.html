@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tilt Cards — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="tilt-cards.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/mouse/tilt-cards.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Tilt Cards</h1>
+    <p>A card that tilts in 3D toward wherever the cursor is within it — Phase 2's perspective work, made interactive.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        A tilt card reads the cursor's position relative to the card's own
+        bounds (not the page), normalized to a 0-1 range on each axis, and
+        maps that into a rotation angle. Moving the cursor toward the
+        card's right edge should tilt the card as if that edge is being
+        pushed away from the viewer — which means horizontal cursor
+        position drives rotation around the vertical (Y) axis, and vertical
+        cursor position drives rotation around the horizontal (X) axis
+        (the axes are perpendicular to the direction of apparent movement).
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        This reuses Phase 2's Transform Variants chapter's finding: a
+        parent needs <code>perspective</code> for a 3D
+        <code>rotateX</code>/<code>rotateY</code> to read as genuine depth
+        rather than a flat squash. Here, the stage (not the card itself)
+        carries <code>perspective: 800px</code>, giving the card a fixed
+        vanishing point to rotate against as the cursor moves.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — the card's rotation is composed from two custom properties, same pattern as the Magnetic Buttons chapter:</p>
+      <pre><code class="language-css">.tilt-demo__card {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transition: transform 0.15s ease-out;
+}</code></pre>
+      <p>Step 2 — normalize the cursor's position within the card to a 0-1 range, then map it to a tilt angle centered on 0 at the card's midpoint:</p>
+      <pre><code class="language-javascript">const MAX_TILT_DEGREES = 12;
+
+function handlePointerMove(event) {
+  const rect = card.getBoundingClientRect();
+  const relativeX = (event.clientX - rect.left) / rect.width;
+  const relativeY = (event.clientY - rect.top) / rect.height;
+  const tiltX = (relativeY - 0.5) * -MAX_TILT_DEGREES * 2;
+  const tiltY = (relativeX - 0.5) * MAX_TILT_DEGREES * 2;
+  card.style.setProperty('--tilt-x', `${tiltX}deg`);
+  card.style.setProperty('--tilt-y', `${tiltY}deg`);
+}</code></pre>
+      <p>
+        Subtracting <code>0.5</code> centers the range at the card's
+        midpoint (so the card is flat when the cursor is exactly centered),
+        and the sign flip on <code>tiltX</code> makes the top edge tilt
+        away from the cursor when the cursor is above center, matching how
+        a physical card would respond.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo">
+        <div class="tilt-demo__stage">
+          <div class="tilt-demo__card" id="tilt-card">Move over me</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Increase <code>MAX_TILT_DEGREES</code> to 30 and observe how much more dramatic (and less subtle/premium-feeling) the effect becomes.</li>
+        <li>Add a third custom property that lifts the card slightly (<code>translateZ</code>) while tilted, for added depth.</li>
+        <li>Add a glare overlay (a semi-transparent gradient) whose position also tracks the cursor, layered on top of the card.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Measuring cursor position relative to the viewport (<code>event.clientX</code> alone) instead of relative to the card's own bounding box — the tilt direction becomes wrong or inconsistent depending on where the card sits on the page.</li>
+        <li>Forgetting <code>perspective</code> on the stage — the rotation still applies, but reads as a flat, undistorted squash instead of genuine 3D depth.</li>
+        <li>Not resetting the tilt on <code>pointerleave</code> — the card stays frozen at its last angle instead of returning to flat when the cursor exits.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        Only <code>transform</code> changes, composited via custom
+        properties — stays cheap regardless of pointer event frequency.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        The card's own text content remains fully readable and accessible
+        with or without the tilt engaging — the tilt is a progressive
+        enhancement, not a requirement for using the card. Keyboard-only
+        users simply never see the effect, since there's no pointer
+        position driving it; nothing about the card's content or
+        functionality depends on the tilt having occurred.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        A brief tilt could theoretically fire from a touch's initial
+        contact point via <code>pointermove</code> during a drag, but
+        without a hover-equivalent state, most touch interactions won't
+        trigger sustained tilting the way a mouse does — the card simply
+        renders flat by default on touch devices, which is an acceptable
+        and expected degradation for a decorative effect.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>perspective</code> / <code>rotateX</code>/<code>rotateY</code></td><td>36+</td><td>16+</td><td>9+</td><td>Universally supported.</td></tr>
+          <tr><td>Pointer Events</td><td>55+</td><td>59+</td><td>13+</td><td>Universally supported in evergreen browsers.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="tilt-cards.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

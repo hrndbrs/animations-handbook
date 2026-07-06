@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hover Reveal &amp; Image Distortion — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="hover-distortion.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/mouse/hover-distortion.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Hover Reveal &amp; Image Distortion</h1>
+    <p>Two ways an image (here, a gradient stand-in) can react to the cursor — a simple zoom, and a subtle warp.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        A hover-zoom image effect wraps an image in an
+        <code>overflow: hidden</code> frame smaller than (or equal to) the
+        image's scaled-up size, so scaling the inner image up on hover
+        reveals a "zoomed in" crop rather than the image visibly growing
+        past its container's edges. This needs no JS at all — it's a plain
+        <code>:hover</code> transition.
+      </p>
+      <p>
+        A distortion effect goes further: instead of a uniform scale, the
+        element skews based on cursor position, producing a warping effect
+        as if the surface were slightly pliable. This chapter uses a
+        gradient box in place of a real photo, since this project has no
+        image asset pipeline (the same constraint Phase 2's
+        Opacity &amp; Compositing / Shadows &amp; Gradients chapters ran
+        into for <code>object-position</code>) — the technique applies
+        identically to a real <code>&lt;img&gt;</code> in its place.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        Both effects only ever animate <code>transform</code>, so both stay
+        composite-only regardless of how large the underlying
+        image/element is — critically important for the zoom effect in
+        particular, since real photos are often much larger in file size
+        and pixel dimensions than the small decorative elements used
+        elsewhere in this handbook.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 — the zoom frame clips anything beyond its bounds, and the inner image scales up purely via CSS transition on hover/focus:</p>
+      <pre><code class="language-css">.zoom-demo__frame {
+  overflow: hidden;
+}
+.zoom-demo__image {
+  transition: transform 0.4s ease;
+}
+.zoom-demo__frame:hover .zoom-demo__image {
+  transform: scale(1.15);
+}</code></pre>
+      <p>Step 2 — the distortion box composes its skew from two custom properties, same pattern as every other custom-property-driven demo in this phase:</p>
+      <pre><code class="language-css">.distort-demo__box {
+  --distort-x: 0deg;
+  --distort-y: 0deg;
+  transform: skew(var(--distort-x), var(--distort-y));
+  transition: transform 0.2s ease-out;
+}</code></pre>
+      <p>Step 3 — map cursor position within the box (centered at 0) to a skew angle on each axis:</p>
+      <pre><code class="language-javascript">const MAX_SKEW_DEGREES = 10;
+
+function handlePointerMove(event) {
+  const rect = distortBox.getBoundingClientRect();
+  const relativeX = (event.clientX - rect.left) / rect.width - 0.5;
+  const relativeY = (event.clientY - rect.top) / rect.height - 0.5;
+  distortBox.style.setProperty('--distort-x', `${relativeX * MAX_SKEW_DEGREES}deg`);
+  distortBox.style.setProperty('--distort-y', `${relativeY * MAX_SKEW_DEGREES}deg`);
+}</code></pre>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo">
+        <div class="zoom-demo__frame">
+          <div class="zoom-demo__image"></div>
+        </div>
+      </div>
+      <div class="demo">
+        <div class="distort-demo__box" id="distort-box">Move over me</div>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Replace the gradient stand-in with a real <code>&lt;img&gt;</code> (using any photo you have) and confirm the zoom-frame technique works identically.</li>
+        <li>Combine the zoom and distortion techniques on one element: scale slightly while also skewing based on cursor position.</li>
+        <li>Add <code>object-fit: cover</code> to a real <code>&lt;img&gt;</code> version so it fills the frame regardless of its native aspect ratio.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Forgetting <code>overflow: hidden</code> on the zoom frame — the scaled-up image spills outside its intended bounds instead of appearing "zoomed in."</li>
+        <li>Setting <code>MAX_SKEW_DEGREES</code> too high — skew distorts text/content readability quickly; small values (5-10 degrees) read as a subtle warp, larger values just look broken.</li>
+        <li>Applying the zoom transform to the frame itself instead of an inner element — scales the clipping boundary along with the content, so nothing appears to zoom at all.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        Both effects are transform-only and composite-only. For a real
+        <code>&lt;img&gt;</code>, prefer an appropriately-sized source image
+        over relying on the browser to downscale a much larger one — the
+        transform itself is cheap, but decoding an oversized image is not.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        Neither demo has a keyboard equivalent, and that's the correct call
+        here: both are purely decorative pointer effects with no functional
+        content of their own (the zoom frame wraps a plain gradient box, not
+        interactive content), so there's nothing a keyboard-only user would
+        be missing by never triggering either effect. The underlying content
+        in both cases remains visible at rest regardless.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        Both effects are pointer-dependent: the zoom frame's
+        <code>:hover</code> and the distortion box's cursor tracking both
+        require a mouse or trackpad. On touch devices without a pointing
+        device, both remain at rest — an acceptable degradation for purely
+        decorative effects with no functional content.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>transform: scale()</code>/<code>skew()</code></td><td>36+</td><td>16+</td><td>9+</td><td>Universally supported.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="hover-distortion.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>

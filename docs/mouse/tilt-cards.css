@@ -1,0 +1,26 @@
+/* docs/mouse/tilt-cards.css
+   Styles for the pointer-driven 3D tilt card. JS only sets --tilt-x/
+   --tilt-y; the rotateX/rotateY composition lives here in CSS. */
+
+.tilt-demo__stage {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 0;
+  perspective: 800px;
+}
+
+.tilt-demo__card {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  width: 220px;
+  height: 140px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 600;
+  transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transition: transform 0.15s ease-out;
+}
