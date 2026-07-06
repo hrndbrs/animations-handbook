@@ -1,0 +1,165 @@
+/* docs/transform/timing-easing.css
+   Three demos: (1) a draggable box that springs back to rest on
+   release, using utils/spring.js; (2) a draggable-handle cubic-bezier
+   graph whose curve drives both a CSS transition and a JS
+   requestAnimationFrame loop identically; (3) two staggered reveal
+   lists, one linear, one eased via utils/math.js's smoothstep. */
+
+.spring-demo__stage {
+  position: relative;
+  height: 200px;
+  border-radius: 12px;
+  background: var(--color-surface);
+  border: 1px solid #24262f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.spring-demo__box {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: grab;
+  touch-action: none;
+}
+
+.spring-demo__controls {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  padding: 1rem 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.bezier-demo__graph {
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+  margin: 0 auto;
+  background: var(--color-surface);
+  border: 1px solid #24262f;
+  border-radius: 8px;
+}
+
+.bezier-demo__diagonal {
+  stroke: #24262f;
+  stroke-width: 1;
+}
+
+.bezier-demo__curve {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2;
+}
+
+.bezier-demo__handle-line {
+  stroke: var(--color-text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
+.bezier-demo__handle {
+  fill: #fff;
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  cursor: grab;
+  touch-action: none;
+}
+
+.bezier-demo__readout {
+  text-align: center;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.bezier-demo__play-btn {
+  display: block;
+  margin: 0.5rem auto 1rem;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+.bezier-demo__track {
+  position: relative;
+  height: 40px;
+  margin-bottom: 0.5rem;
+}
+
+.bezier-demo__box {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: var(--color-accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+}
+
+.bezier-demo__box--css {
+  transition-property: transform;
+  transition-duration: 1s;
+}
+
+.bezier-demo__box--css.is-playing {
+  transform: translateX(200px);
+}
+
+.stagger-demo__row {
+  display: flex;
+  gap: 3rem;
+  justify-content: center;
+  padding: 1rem 0;
+}
+
+.stagger-demo__column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 140px;
+}
+
+.stagger-demo__label {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.stagger-demo__item {
+  height: 28px;
+  border-radius: 6px;
+  background: var(--color-accent);
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.stagger-demo__item.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.stagger-demo__reveal-btn {
+  display: block;
+  margin: 1rem auto 0;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}

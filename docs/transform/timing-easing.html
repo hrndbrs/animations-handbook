@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Timing &amp; Easing — Animations Handbook</title>
+  <link rel="stylesheet" href="../../shared/doc-page.css" />
+  <link rel="stylesheet" href="../../shared/prism/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="timing-easing.css" />
+</head>
+<body>
+  <site-header base="../../"></site-header>
+  <site-nav base="../../" current="docs/transform/timing-easing.html"></site-nav>
+
+  <main class="doc-page">
+    <h1>Timing &amp; Easing</h1>
+    <p>Three different ways to shape motion over time — a physical simulation, an authored curve, and offset sequencing — and when to reach for each.</p>
+
+    <section class="doc-page__section">
+      <h2>1. Theory</h2>
+      <p>
+        A spring is physically simulated: it has no fixed duration, it
+        reacts continuously to wherever its target is, and it's naturally
+        interruptible — drag it away mid-motion and it just starts
+        springing from the new position, no restart logic needed. A
+        cubic-bezier curve is the opposite: an authored, fixed-duration
+        shape you draw once and reuse everywhere, the same curve
+        producing identical motion every time it plays. Staggering is a
+        different axis entirely — it doesn't shape any one element's
+        motion, it shapes the *offsets between* multiple elements'
+        identical motions.
+      </p>
+      <p>
+        Springs suit physically-motivated, interruptible interactions
+        (drag-and-release, this chapter's Demo 1). Cubic-bezier suits
+        fixed-duration authored transitions where you want a specific,
+        repeatable feel (Demo 2). Stagger suits sequencing many elements
+        without hand-writing a delay for each one (Demo 3).
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>2. Browser internals</h2>
+      <p>
+        A spring has to be simulated step by step in JS — there's no CSS
+        primitive for "settle toward a target with this stiffness and
+        damping," so Demo 1 integrates the spring's acceleration into
+        velocity into position every frame, the same
+        <code>requestAnimationFrame</code>-loop pattern this handbook has
+        used since Phase 1's Canvas chapter. A cubic-bezier curve, by
+        contrast, is natively understood by CSS's
+        <code>transition-timing-function</code> — Demo 2 plays the
+        identical curve two ways at once (a native CSS transition, and a
+        JS loop evaluating the same curve via
+        <code>utils/easing.js</code>'s <code>cubicBezier</code>) so you can
+        confirm both produce the same motion from the same four numbers.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>3. Step-by-step implementation</h2>
+      <p>Step 1 (Demo 1) — one spring-integration step, called once per frame with the previous state:</p>
+      <pre><code class="language-javascript">import { stepSpring } from '../../utils/spring.js';
+
+function animateSpring(timestamp) {
+  const dt = Math.min((timestamp - lastFrameTime) / 1000, 0.05);
+  const next = stepSpring({ position, velocity, target: 0, stiffness, damping, dt });
+  position = next.position;
+  velocity = next.velocity;
+  box.style.transform = `translate(${position.x}px, ${position.y}px)`;
+  if (!settled) requestAnimationFrame(animateSpring);
+}</code></pre>
+      <p>Step 2 (Demo 2) — the exact same four control-point numbers drive a native CSS transition and a JS loop side by side:</p>
+      <pre><code class="language-css">.bezier-demo__box--css.is-playing {
+  transform: translateX(200px);
+  /* transition-timing-function set inline from the same p1/p2 as the JS below */
+}</code></pre>
+      <pre><code class="language-javascript">import { cubicBezier } from '../../utils/easing.js';
+
+const ease = cubicBezier(p1.x, p1.y, p2.x, p2.y);
+function step(timestamp) {
+  const progress = Math.min((timestamp - startTime) / 1000, 1);
+  jsBox.style.transform = `translateX(${ease(progress) * 200}px)`;
+  if (progress < 1) requestAnimationFrame(step);
+}</code></pre>
+      <p>Step 3 (Demo 3) — each item's <code>transition-delay</code> is computed from its index, either linearly or shaped by <code>smoothstep</code>:</p>
+      <pre><code class="language-javascript">import { smoothstep } from '../../utils/math.js';
+
+function getLinearDelay(index) {
+  return (index / (count - 1)) * totalMs;
+}
+function getEasedDelay(index) {
+  return smoothstep(0, 1, index / (count - 1)) * totalMs;
+}</code></pre>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>4. Live interactive demo</h2>
+      <div class="demo">
+        <p>Drag the circle and release — it springs back:</p>
+        <div class="spring-demo__stage" id="spring-stage">
+          <div class="spring-demo__box" id="spring-box"></div>
+        </div>
+        <div class="spring-demo__controls">
+          <label>Stiffness <input type="range" id="spring-stiffness" min="50" max="400" value="170" /></label>
+          <label>Damping <input type="range" id="spring-damping" min="5" max="60" value="26" /></label>
+        </div>
+      </div>
+      <div class="demo">
+        <p>Drag the two handles to author a curve, then play it both ways:</p>
+        <svg class="bezier-demo__graph" viewBox="0 0 100 100" id="bezier-graph">
+          <line x1="0" y1="100" x2="100" y2="0" class="bezier-demo__diagonal" />
+          <path id="bezier-curve-path" class="bezier-demo__curve" />
+          <line id="bezier-handle-line-1" class="bezier-demo__handle-line" />
+          <line id="bezier-handle-line-2" class="bezier-demo__handle-line" />
+          <circle id="bezier-handle-1" class="bezier-demo__handle" r="4" cx="25" cy="75" />
+          <circle id="bezier-handle-2" class="bezier-demo__handle" r="4" cx="75" cy="25" />
+        </svg>
+        <p class="bezier-demo__readout" id="bezier-readout"></p>
+        <button type="button" class="bezier-demo__play-btn" id="bezier-play-btn">Play both</button>
+        <div class="bezier-demo__track">
+          <div class="bezier-demo__box bezier-demo__box--css" id="bezier-box-css">CSS</div>
+        </div>
+        <div class="bezier-demo__track">
+          <div class="bezier-demo__box" id="bezier-box-js">JS</div>
+        </div>
+      </div>
+      <div class="demo">
+        <p>Reveal both lists and compare the spacing between items as they appear:</p>
+        <div class="stagger-demo__row">
+          <div>
+            <p class="stagger-demo__label">Linear stagger</p>
+            <div class="stagger-demo__column" id="stagger-linear">
+              <div class="stagger-demo__item"></div>
+              <div class="stagger-demo__item"></div>
+              <div class="stagger-demo__item"></div>
+              <div class="stagger-demo__item"></div>
+              <div class="stagger-demo__item"></div>
+              <div class="stagger-demo__item"></div>
+            </div>
+          </div>
+          <div>
+            <p class="stagger-demo__label">Eased stagger (smoothstep)</p>
+            <div class="stagger-demo__column" id="stagger-eased">
+              <div class="stagger-demo__item"></div>
+              <div class="stagger-demo__item"></div>
+              <div class="stagger-demo__item"></div>
+              <div class="stagger-demo__item"></div>
+              <div class="stagger-demo__item"></div>
+              <div class="stagger-demo__item"></div>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="stagger-demo__reveal-btn" id="stagger-reveal-btn">Reveal</button>
+      </div>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>5. Exercises</h2>
+      <ol class="callout-list">
+        <li>Set Demo 1's damping slider to its minimum and observe the box oscillate for much longer before settling — an underdamped spring.</li>
+        <li>Drag Demo 2's second handle so its y-value goes above 1.0 or below 0.0, and watch both boxes overshoot past their target before settling — a real, valid cubic-bezier technique, not a bug.</li>
+        <li>Change Demo 3's <code>getEasedDelay</code> to use <code>1 - smoothstep(0, 1, 1 - t)</code> (an eased curve shaped the other way) and compare how the item spacing changes.</li>
+      </ol>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>6. Common mistakes</h2>
+      <ul class="callout-list">
+        <li>Using a spring with damping at or near zero, expecting it to settle — with too little damping relative to stiffness, it oscillates for a very long time (or effectively forever) instead of coming to rest.</li>
+        <li>Assuming cubic-bezier control points must stay within the 0-1 range — they don't; y-values outside that range are exactly what produce overshoot/bounce easing, as Demo 2's Exercise 2 shows directly.</li>
+        <li>Giving every staggered item the same <code>transition-delay</code> by mistake (e.g. computing it outside the per-item loop) — nothing appears staggered at all, since every item then starts at the same time.</li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>7. Performance considerations</h2>
+      <p>
+        All three demos only ever animate <code>transform</code> or
+        <code>opacity</code>, so all stay composite-only regardless of
+        which timing mechanism drives them. The real cost difference
+        between the three techniques is JS computation per frame, not
+        render cost: a spring integration step and a Newton-Raphson bezier
+        solve are both cheap for a handful of elements, but a page
+        driving hundreds of simultaneous spring-animated elements would
+        want to batch that math rather than run 300+ independent
+        <code>requestAnimationFrame</code> loops.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>8. Accessibility considerations</h2>
+      <p>
+        Demo 1's drag-and-release has no keyboard equivalent — dragging is
+        inherently a pointer gesture — but the circle is purely decorative
+        with no functional information gated behind it, the same reasoning
+        this handbook's Phase 4 pointer-driven chapters already
+        established. Demo 2's draggable handles are similarly pointer-only,
+        but the "Play both" button is a real, keyboard-operable trigger
+        that lets a keyboard-only user see the currently-set curve play
+        even without ever dragging a handle. Demo 3's reveal is a real
+        button; the staggered items themselves are decorative.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>9. Mobile considerations</h2>
+      <p>
+        Demo 1 and Demo 2 both use Pointer Events
+        (<code>pointerdown</code>/<code>pointermove</code>/<code>pointerup</code>),
+        which unify mouse, touch, and pen input — both demos' dragging
+        works identically via touch, and <code>touch-action: none</code>
+        on the draggable elements prevents the browser's default
+        scroll/zoom gestures from fighting the drag. Demo 3's button works
+        via tap exactly as it does via click.
+      </p>
+    </section>
+
+    <section class="doc-page__section">
+      <h2>10. Browser compatibility</h2>
+      <table class="compat-table">
+        <thead>
+          <tr><th>Feature</th><th>Chrome</th><th>Firefox</th><th>Safari</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Pointer Events</td><td>55+</td><td>59+</td><td>13+</td><td>Universally supported in evergreen browsers.</td></tr>
+          <tr><td><code>requestAnimationFrame</code></td><td>24+</td><td>23+</td><td>6.1+</td><td>Universally supported.</td></tr>
+          <tr><td>CSS <code>transition-delay</code></td><td>26+</td><td>16+</td><td>9+</td><td>Universally supported.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <site-footer></site-footer>
+
+  <script type="module" src="../../shared/partials.js"></script>
+  <script type="module" src="timing-easing.js"></script>
+  <script src="../../shared/prism/prism.js"></script>
+  <script src="../../shared/prism/prism-markup.min.js"></script>
+  <script src="../../shared/prism/prism-css.min.js"></script>
+  <script src="../../shared/prism/prism-javascript.min.js"></script>
+</body>
+</html>
