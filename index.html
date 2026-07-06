@@ -43,14 +43,42 @@
     </section>
 
     <section class="doc-page__section">
+      <h2>CSS Properties</h2>
+      <ul class="callout-list">
+        <li>
+          <a href="docs/css-properties/opacity-compositing.html">Opacity &amp; Compositing</a>
+          — <code>opacity</code>, stacking contexts, and why it's compositor-friendly.
+        </li>
+        <li>
+          <a href="docs/css-properties/transform-variants.html">Transform Variants</a>
+          — <code>translate</code>, <code>rotate</code>, <code>scale</code>, <code>skew</code>, and <code>perspective</code>, combined live with sliders.
+        </li>
+        <li>
+          <a href="docs/css-properties/filters-masking.html">Filters &amp; Masking</a>
+          — <code>filter</code>, <code>backdrop-filter</code>, <code>clip-path</code>, and <code>mask</code>.
+        </li>
+        <li>
+          <a href="docs/css-properties/shadows-gradients.html">Shadows &amp; Gradients</a>
+          — <code>box-shadow</code>, <code>text-shadow</code>, and animated gradients via <code>@keyframes</code>.
+        </li>
+        <li>
+          <a href="docs/css-properties/custom-properties.html">CSS Custom Properties &amp; @property</a>
+          — why animating a plain CSS variable does nothing, and the at-rule that fixes it.
+        </li>
+      </ul>
+    </section>
+
+    <section class="doc-page__section">
       <h2>About this project</h2>
       <p>
-        This is Phase 1 of a much larger handbook. The three chapters above
-        were chosen because they each exercise a structurally different
-        animation engine — pure CSS, observer-driven JS, and imperative
-        JS+Canvas — which stress-tests whether the shared documentation
-        template and utility modules generalize before dozens more chapters
-        are built on top of them.
+        Phase 1 built the site's foundation and proved the documentation
+        pattern with 3 exemplar chapters, one per animation engine — pure
+        CSS, observer-driven JS, and imperative JS+Canvas. Phase 2 extended
+        that pattern breadth-wise across CSS properties rather than
+        introducing new engines, adding the 5 chapters above. Many more
+        categories remain (timing, parallax, mouse interactions, text
+        effects, SVG, more canvas techniques, and more) and will arrive in
+        later phases.
       </p>
     </section>
   </main>
